@@ -1,0 +1,13 @@
+streamlit>=1.36
+pandas>=2.0
+numpy>=1.24
+plotly>=5.20
+opencv-contrib-python>=4.8
+scikit-image>=0.22
+reportlab>=4.0
+streamlit-drawable-canvas>=0.9
+pillow>=10.0
+xlsxwriter>=3.2
+# optional for ML segmentation:
+torch>=2.2 ; platform_system != "Darwin" or platform_machine != "arm64"
+torchvision>=0.17 ; platform_system != "Darwin" or platform_machine != "arm64"
