@@ -11,11 +11,13 @@ import DataAnalysis from "@/components/data-analysis"
 import ImageGallery from "@/components/image-gallery"
 import ProfileManager from "@/components/profile-manager"
 import BodyMap from "@/components/body-map"
+import Integrations from "@/components/integrations"
 
 export default function HomePage() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [isInstalled, setIsInstalled] = useState(false)
   const [records, setRecords] = useState<any[]>([])
+  const [showUpdateNotification, setShowUpdateNotification] = useState(false)
 
   useEffect(() => {
     // Register service worker
@@ -24,10 +26,39 @@ export default function HomePage() {
         .register("/sw.js")
         .then((registration) => {
           console.log("[v0] Service Worker registered:", registration)
+
+          // Check for updates every 60 seconds
+          setInterval(() => {
+            registration.update()
+          }, 60000)
+
+          // Listen for updates
+          registration.addEventListener("updatefound", () => {
+            const newWorker = registration.installing
+            if (newWorker) {
+              newWorker.addEventListener("statechange", () => {
+                if (newWorker.state === "activated" && navigator.serviceWorker.controller) {
+                  // New service worker activated, show notification and reload
+                  setShowUpdateNotification(true)
+                  setTimeout(() => {
+                    window.location.reload()
+                  }, 1500)
+                }
+              })
+            }
+          })
         })
         .catch((error) => {
           console.log("[v0] Service Worker registration failed:", error)
         })
+
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        console.log("[v0] New service worker activated, reloading...")
+        setShowUpdateNotification(true)
+        setTimeout(() => {
+          window.location.reload()
+        }, 1500)
+      })
     }
 
     // Listen for install prompt
@@ -88,6 +119,15 @@ export default function HomePage() {
   return (
     <div className="min-h-screen">
       <div className="container mx-auto p-4 relative">
+        {showUpdateNotification && (
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 glass-card rounded-xl p-4 border-blue-200/30 bg-gradient-to-r from-blue-500/20 to-purple-500/20 shadow-2xl animate-in slide-in-from-top">
+            <div className="text-blue-700 text-sm font-medium flex items-center gap-2">
+              <span className="text-blue-500">🔄</span>
+              New version available! Updating app...
+            </div>
+          </div>
+        )}
+
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4 glass-card rounded-2xl p-6">
             <div>
@@ -135,48 +175,62 @@ export default function HomePage() {
         </div>
 
         <Tabs defaultValue="home" className="w-full">
-          <TabsList className="glass-card grid w-full grid-cols-7 p-2 mb-6">
+          <TabsList className="glass-card grid w-full grid-cols-4 sm:grid-cols-8 p-2 mb-6 gap-1">
             <TabsTrigger
               value="home"
-              className="glass-button data-[state=active]:bg-primary/80 data-[state=active]:text-white text-xs"
+              className="glass-button data-[state=active]:bg-primary/80 data-[state=active]:text-white text-xs sm:text-sm flex flex-col sm:flex-row items-center gap-1 p-2 sm:p-3"
             >
-              🏠 Home
+              <span className="text-base sm:text-sm">🏠</span>
+              <span className="hidden sm:inline">Home</span>
             </TabsTrigger>
             <TabsTrigger
               value="profile"
-              className="glass-button data-[state=active]:bg-primary/80 data-[state=active]:text-white text-xs"
+              className="glass-button data-[state=active]:bg-primary/80 data-[state=active]:text-white text-xs sm:text-sm flex flex-col sm:flex-row items-center gap-1 p-2 sm:p-3"
             >
-              👤 Profile
+              <span className="text-base sm:text-sm">👤</span>
+              <span className="hidden sm:inline">Profile</span>
             </TabsTrigger>
             <TabsTrigger
               value="bodymap"
-              className="glass-button data-[state=active]:bg-primary/80 data-[state=active]:text-white text-xs"
+              className="glass-button data-[state=active]:bg-primary/80 data-[state=active]:text-white text-xs sm:text-sm flex flex-col sm:flex-row items-center gap-1 p-2 sm:p-3"
             >
-              🗺️ Body Map
+              <span className="text-base sm:text-sm">🗺️</span>
+              <span className="hidden sm:inline">Body Map</span>
             </TabsTrigger>
             <TabsTrigger
               value="capture"
-              className="glass-button data-[state=active]:bg-primary/80 data-[state=active]:text-white text-xs"
+              className="glass-button data-[state=active]:bg-primary/80 data-[state=active]:text-white text-xs sm:text-sm flex flex-col sm:flex-row items-center gap-1 p-2 sm:p-3"
             >
-              📸 Capture
+              <span className="text-base sm:text-sm">📸</span>
+              <span className="hidden sm:inline">Capture</span>
             </TabsTrigger>
             <TabsTrigger
               value="analyze"
-              className="glass-button data-[state=active]:bg-primary/80 data-[state=active]:text-white text-xs"
+              className="glass-button data-[state=active]:bg-primary/80 data-[state=active]:text-white text-xs sm:text-sm flex flex-col sm:flex-row items-center gap-1 p-2 sm:p-3 col-start-1 sm:col-start-auto"
             >
-              🔍 Analyze
+              <span className="text-base sm:text-sm">🔍</span>
+              <span className="hidden sm:inline">Analyze</span>
             </TabsTrigger>
             <TabsTrigger
               value="track"
-              className="glass-button data-[state=active]:bg-primary/80 data-[state=active]:text-white text-xs"
+              className="glass-button data-[state=active]:bg-primary/80 data-[state=active]:text-white text-xs sm:text-sm flex flex-col sm:flex-row items-center gap-1 p-2 sm:p-3"
             >
-              📝 Track
+              <span className="text-base sm:text-sm">📝</span>
+              <span className="hidden sm:inline">Track</span>
             </TabsTrigger>
             <TabsTrigger
               value="data"
-              className="glass-button data-[state=active]:bg-primary/80 data-[state=active]:text-white text-xs"
+              className="glass-button data-[state=active]:bg-primary/80 data-[state=active]:text-white text-xs sm:text-sm flex flex-col sm:flex-row items-center gap-1 p-2 sm:p-3"
             >
-              📊 Data
+              <span className="text-base sm:text-sm">📊</span>
+              <span className="hidden sm:inline">Data</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="integrations"
+              className="glass-button data-[state=active]:bg-primary/80 data-[state=active]:text-white text-xs sm:text-sm flex flex-col sm:flex-row items-center gap-1 p-2 sm:p-3"
+            >
+              <span className="text-base sm:text-sm">🔗</span>
+              <span className="hidden sm:inline">Integrations</span>
             </TabsTrigger>
           </TabsList>
 
@@ -273,6 +327,12 @@ export default function HomePage() {
           <TabsContent value="data">
             <div className="glass-card rounded-2xl p-6">
               <DataAnalysis records={records} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="integrations">
+            <div className="glass-card rounded-2xl p-6">
+              <Integrations records={records} onRecordsImported={setRecords} />
             </div>
           </TabsContent>
         </Tabs>
