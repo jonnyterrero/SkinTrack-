@@ -85,8 +85,8 @@ export default function DataAnalysis({ records }) {
               <div className="text-sm text-gray-600">Images</div>
             </div>
 
-            <div className="text-center p-4 bg-purple-50 rounded-lg">
-              <div className="text-2xl font-bold text-purple-600">{symptomRecords.length}</div>
+            <div className="rounded-lg bg-cyan-50 p-4 text-center dark:bg-cyan-950/40">
+              <div className="text-2xl font-bold text-cyan-700 dark:text-cyan-400">{symptomRecords.length}</div>
               <div className="text-sm text-gray-600">Symptom Records</div>
             </div>
 

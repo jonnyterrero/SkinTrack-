@@ -1,8 +1,13 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { GeistSans } from "geist/font/sans"
-import { GeistMono } from "geist/font/mono"
+import { Work_Sans } from "next/font/google"
 import "./globals.css"
+
+const workSans = Work_Sans({
+  subsets: ["latin"],
+  variable: "--font-work-sans",
+  display: "swap",
+})
 
 export const metadata: Metadata = {
   title: "SkinTrack+ - Skin Condition Tracker",
@@ -11,8 +16,8 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   keywords: ["skin tracking", "dermatology", "health", "medical", "pwa", "mobile app"],
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+    { media: "(prefers-color-scheme: light)", color: "#0891b2" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
   ],
   authors: [{ name: "SkinTrack+ Team" }],
   viewport: "minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, viewport-fit=cover",
@@ -29,7 +34,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={workSans.variable}>
       <head>
         <meta name="application-name" content="SkinTrack+" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -38,21 +43,13 @@ export default function RootLayout({
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
-        <meta name="msapplication-TileColor" content="#3b82f6" />
+        <meta name="msapplication-TileColor" content="#0891b2" />
         <meta name="msapplication-tap-highlight" content="no" />
 
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
         <link rel="manifest" href="/manifest.json" />
-
-        <style>{`
-html {
-  font-family: ${GeistSans.style.fontFamily};
-  --font-sans: ${GeistSans.variable};
-  --font-mono: ${GeistMono.variable};
-}
-        `}</style>
       </head>
-      <body>{children}</body>
+      <body className={`${workSans.className} font-sans antialiased`}>{children}</body>
     </html>
   )
 }

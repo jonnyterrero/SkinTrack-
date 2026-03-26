@@ -46,14 +46,14 @@ export default function BodyMap({ records }: BodyMapProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
+        <h2 className="mb-2 bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-3xl font-bold text-transparent">
           🗺️ Body Map
         </h2>
         <p className="text-foreground/70">Visual representation of tracked areas on your body</p>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        <Card className="glass-card border-white/20">
+        <Card className="glass-card border-slate-200/80 dark:border-slate-700">
           <CardHeader>
             <CardTitle className="text-lg">Interactive Body Map</CardTitle>
             <CardDescription>Click on body areas to view records</CardDescription>
@@ -79,7 +79,7 @@ export default function BodyMap({ records }: BodyMapProps) {
                     cy={area.y}
                     r="3"
                     className={`cursor-pointer transition-all hover:r-4 ${getAreaColor(area.id)} ${
-                      selectedArea === area.id ? "stroke-purple-500 stroke-2" : "stroke-white/50 stroke-1"
+                      selectedArea === area.id ? "stroke-cyan-600 stroke-2" : "stroke-slate-300 stroke-1 dark:stroke-slate-600"
                     }`}
                     onClick={() => setSelectedArea(area.id)}
                   />
@@ -104,7 +104,7 @@ export default function BodyMap({ records }: BodyMapProps) {
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-white/20">
+        <Card className="glass-card border-slate-200/80 dark:border-slate-700">
           <CardHeader>
             <CardTitle className="text-lg">
               {selectedArea ? `Records for ${bodyAreas.find((a) => a.id === selectedArea)?.name}` : "Select an Area"}

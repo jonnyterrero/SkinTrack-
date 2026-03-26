@@ -50,14 +50,14 @@ export default function ProfileManager() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
+        <h2 className="mb-2 bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-3xl font-bold text-transparent">
           👤 Profile Management
         </h2>
         <p className="text-foreground/70">Manage your personal information and medical history</p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        <Card className="glass-card border-white/20">
+        <Card className="glass-card border-slate-200/80 dark:border-slate-700">
           <CardHeader>
             <CardTitle className="text-lg">Personal Information</CardTitle>
           </CardHeader>
@@ -116,7 +116,7 @@ export default function ProfileManager() {
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-white/20">
+        <Card className="glass-card border-slate-200/80 dark:border-slate-700">
           <CardHeader>
             <CardTitle className="text-lg">Medical Information</CardTitle>
           </CardHeader>
@@ -158,7 +158,7 @@ export default function ProfileManager() {
         </Card>
       </div>
 
-      <Card className="glass-card border-white/20">
+      <Card className="glass-card border-slate-200/80 dark:border-slate-700">
         <CardHeader>
           <CardTitle className="text-lg">Additional Notes</CardTitle>
         </CardHeader>
@@ -176,7 +176,7 @@ export default function ProfileManager() {
       <div className="flex justify-end">
         <Button
           onClick={handleSave}
-          className="glass-button bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 px-8"
+          className="glass-button rounded-lg border-0 px-8 text-white"
         >
           💾 Save Profile
         </Button>

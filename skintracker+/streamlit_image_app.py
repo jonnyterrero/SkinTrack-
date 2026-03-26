@@ -98,6 +98,17 @@ CONDITIONS = [
     "cystic/hormonal acne", "melanoma", "vitiligo", "contact dermatitis", "cold sores"
 ]
 
+# Body map constants
+BODY_REGIONS = [
+    "head", "face", "neck", "chest", "abdomen", "back", "shoulders", "arms", 
+    "forearms", "hands", "fingers", "thighs", "legs", "feet", "toes", "genital area"
+]
+
+BODY_SIDES = ["left", "right", "center", "both"]
+
+# Medication time flags
+MEDICATION_TIMES = ["morning", "afternoon", "evening", "bedtime", "as_needed"]
+
 IMAGE_CAPTURE_OPTIONS = [
     "Take photo with camera",
     "Upload existing image",
@@ -107,7 +118,8 @@ IMAGE_CAPTURE_OPTIONS = [
 
 COLOR_SCHEMES = {
     "symptoms": ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7"],
-    "analysis": ["#DDA0DD", "#98D8C8", "#F7DC6F", "#BB8FCE", "#85C1E9"]
+    "analysis": ["#DDA0DD", "#98D8C8", "#F7DC6F", "#BB8FCE", "#85C1E9"],
+    "body_map": ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD"]
 }
 
 # Database functions
@@ -145,6 +157,48 @@ def init_db():
                     depig_deltaE REAL
                 );
             """)
+            
+            # New table for body map locations
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS body_map_locations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    lesion_id INTEGER,
+                    view TEXT,
+                    x_coord REAL,
+                    y_coord REAL,
+                    body_region TEXT,
+                    side TEXT,
+                    FOREIGN KEY (lesion_id) REFERENCES lesions (id)
+                );
+            """)
+            
+            # New table for user profile
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS user_profile (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    default_conditions TEXT,
+                    created_at TEXT,
+                    updated_at TEXT
+                );
+            """)
+            
+            # New table for medication catalog
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS medication_catalog (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT,
+                    default_dose TEXT,
+                    default_frequency TEXT,
+                    morning INTEGER DEFAULT 0,
+                    afternoon INTEGER DEFAULT 0,
+                    evening INTEGER DEFAULT 0,
+                    bedtime INTEGER DEFAULT 0,
+                    as_needed INTEGER DEFAULT 0,
+                    notes TEXT,
+                    created_at TEXT
+                );
+            """)
+            
             con.commit()
             st.session_state.db_initialized = True
     except Exception as e:
@@ -155,6 +209,102 @@ def list_lesions():
     """List all lesions in the database"""
     with sqlite3.connect(DB_PATH) as con:
         return pd.read_sql_query("SELECT id, label, condition FROM lesions ORDER BY id DESC", con)
+
+# Body map functions
+def insert_body_map_location(lesion_id, view, x_coord, y_coord, body_region, side):
+    """Insert body map location for a lesion"""
+    with sqlite3.connect(DB_PATH) as con:
+        cur = con.cursor()
+        cur.execute("""
+            INSERT INTO body_map_locations (lesion_id, view, x_coord, y_coord, body_region, side)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (lesion_id, view, x_coord, y_coord, body_region, side))
+        con.commit()
+
+def get_body_map_locations(lesion_id=None):
+    """Get body map locations for all lesions or a specific lesion"""
+    with sqlite3.connect(DB_PATH) as con:
+        if lesion_id:
+            query = """
+                SELECT bml.*, l.label, l.condition 
+                FROM body_map_locations bml
+                JOIN lesions l ON bml.lesion_id = l.id
+                WHERE bml.lesion_id = ?
+                ORDER BY bml.id DESC
+            """
+            return pd.read_sql_query(query, con, params=(lesion_id,))
+        else:
+            query = """
+                SELECT bml.*, l.label, l.condition 
+                FROM body_map_locations bml
+                JOIN lesions l ON bml.lesion_id = l.id
+                ORDER BY bml.id DESC
+            """
+            return pd.read_sql_query(query, con)
+
+# Profile functions
+def save_user_profile(default_conditions):
+    """Save or update user profile"""
+    with sqlite3.connect(DB_PATH) as con:
+        cur = con.cursor()
+        # Check if profile exists
+        cur.execute("SELECT id FROM user_profile LIMIT 1")
+        profile = cur.fetchone()
+        
+        if profile:
+            # Update existing profile
+            cur.execute("""
+                UPDATE user_profile 
+                SET default_conditions = ?, updated_at = ?
+                WHERE id = ?
+            """, (default_conditions, dt.datetime.now().isoformat(), profile[0]))
+        else:
+            # Create new profile
+            cur.execute("""
+                INSERT INTO user_profile (default_conditions, created_at, updated_at)
+                VALUES (?, ?, ?)
+            """, (default_conditions, dt.datetime.now().isoformat(), dt.datetime.now().isoformat()))
+        con.commit()
+
+def get_user_profile():
+    """Get user profile"""
+    with sqlite3.connect(DB_PATH) as con:
+        return pd.read_sql_query("SELECT * FROM user_profile LIMIT 1", con)
+
+# Medication catalog functions
+def insert_medication_catalog(name, default_dose, default_frequency, time_flags, notes=""):
+    """Add medication to catalog"""
+    with sqlite3.connect(DB_PATH) as con:
+        cur = con.cursor()
+        cur.execute("""
+            INSERT INTO medication_catalog 
+            (name, default_dose, default_frequency, morning, afternoon, evening, bedtime, as_needed, notes, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            name, default_dose, default_frequency,
+            int("morning" in time_flags),
+            int("afternoon" in time_flags),
+            int("evening" in time_flags),
+            int("bedtime" in time_flags),
+            int("as_needed" in time_flags),
+            notes, dt.datetime.now().isoformat()
+        ))
+        con.commit()
+
+def get_medication_catalog():
+    """Get all medications in catalog"""
+    with sqlite3.connect(DB_PATH) as con:
+        return pd.read_sql_query("SELECT * FROM medication_catalog ORDER BY name", con)
+
+def get_todays_medications():
+    """Get medications that should be taken today based on catalog"""
+    with sqlite3.connect(DB_PATH) as con:
+        return pd.read_sql_query("""
+            SELECT name, default_dose, default_frequency,
+                   morning, afternoon, evening, bedtime, as_needed
+            FROM medication_catalog 
+            ORDER BY name
+        """, con)
 
 def insert_lesion(label, condition):
     """Insert a new lesion into the database"""
@@ -332,7 +482,7 @@ def main():
     st.sidebar.title("Navigation")
     page = st.sidebar.selectbox(
         "Choose a page:",
-        ["🏠 Home", "📸 Image Capture", "🔍 Image Analysis", "📊 View Images", "📝 Add Record", "📈 Data Analysis"]
+        ["🏠 Home", "👤 Profile", "🗺️ Body Map", "📸 Image Capture", "🔍 Image Analysis", "📊 View Images", "📝 Add Record", "📈 Data Analysis"]
     )
     
     # Add deployment info
@@ -345,6 +495,10 @@ def main():
     
     if page == "🏠 Home":
         show_home_page()
+    elif page == "👤 Profile":
+        show_profile_page()
+    elif page == "🗺️ Body Map":
+        show_body_map_page()
     elif page == "📸 Image Capture":
         show_image_capture_page()
     elif page == "🔍 Image Analysis":
@@ -616,7 +770,15 @@ def show_add_record_page():
         with col1:
             label = st.text_input("Lesion Label", placeholder="e.g., left forearm A")
         with col2:
-            condition = st.selectbox("Condition Type", CONDITIONS)
+            # Get default conditions from profile
+            profile = get_user_profile()
+            default_condition = ""
+            if not profile.empty and profile.iloc[0]['default_conditions']:
+                default_conditions = profile.iloc[0]['default_conditions'].split(',')
+                if default_conditions:
+                    default_condition = default_conditions[0]  # Use first default condition
+            
+            condition = st.selectbox("Condition Type", CONDITIONS, index=CONDITIONS.index(default_condition) if default_condition in CONDITIONS else 0)
         
         if st.button("➕ Create Lesion") and label:
             lesion_id = insert_lesion(label, condition)
@@ -652,7 +814,24 @@ def show_add_record_page():
         new_products = st.text_input("New Products Used", placeholder="new soap, lotion")
     
     with col2:
-        meds_taken = st.text_input("Medications Taken", placeholder="triamcinolone, antihistamine")
+        # Get today's medications from catalog
+        todays_meds = get_todays_medications()
+        if not todays_meds.empty:
+            st.write("**Today's Medications (from catalog):**")
+            selected_meds = []
+            for _, med in todays_meds.iterrows():
+                if st.checkbox(f"✅ {med['name']} ({med['default_dose']})", key=f"med_{med['id']}"):
+                    selected_meds.append(med['name'])
+            
+            # Allow additional medications
+            additional_meds = st.text_input("Additional Medications", placeholder="other meds not in catalog")
+            if additional_meds:
+                selected_meds.append(additional_meds)
+            
+            meds_taken = ", ".join(selected_meds) if selected_meds else ""
+        else:
+            meds_taken = st.text_input("Medications Taken", placeholder="triamcinolone, antihistamine")
+        
         adherence = st.checkbox("Took medications as planned")
     
     notes = st.text_area("Additional Notes", placeholder="Any other observations...")
@@ -841,6 +1020,253 @@ def show_image_gallery():
                     st.error(f"Image not found")
             except Exception as e:
                 st.error(f"Error: {e}")
+
+def show_profile_page():
+    """Display the user profile page"""
+    st.header("👤 Personal Profile")
+    
+    tab1, tab2 = st.tabs(["📋 Personal Information", "💊 Medication Catalog"])
+    
+    with tab1:
+        st.subheader("Default Skin Conditions")
+        
+        # Get current profile
+        profile = get_user_profile()
+        current_conditions = []
+        if not profile.empty:
+            current_conditions = profile.iloc[0]['default_conditions'].split(',') if profile.iloc[0]['default_conditions'] else []
+        
+        # Multi-select for default conditions
+        selected_conditions = st.multiselect(
+            "Select your commonly tracked skin conditions:",
+            CONDITIONS,
+            default=current_conditions,
+            help="These will be pre-selected when creating new lesions"
+        )
+        
+        if st.button("💾 Save Profile"):
+            conditions_str = ','.join(selected_conditions)
+            save_user_profile(conditions_str)
+            st.success("✅ Profile saved successfully!")
+            st.rerun()
+    
+    with tab2:
+        st.subheader("Medication Catalog")
+        
+        # Add new medication
+        with st.expander("➕ Add New Medication"):
+            med_name = st.text_input("Medication Name:", key="new_med_name")
+            med_dose = st.text_input("Default Dose:", key="new_med_dose")
+            med_frequency = st.text_input("Default Frequency:", key="new_med_frequency")
+            
+            st.write("When to take:")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                morning = st.checkbox("Morning", key="med_morning")
+                afternoon = st.checkbox("Afternoon", key="med_afternoon")
+            with col2:
+                evening = st.checkbox("Evening", key="med_evening")
+                bedtime = st.checkbox("Bedtime", key="med_bedtime")
+            with col3:
+                as_needed = st.checkbox("As Needed", key="med_as_needed")
+            
+            med_notes = st.text_area("Notes:", key="new_med_notes")
+            
+            if st.button("💾 Add Medication"):
+                if med_name:
+                    time_flags = []
+                    if morning: time_flags.append("morning")
+                    if afternoon: time_flags.append("afternoon")
+                    if evening: time_flags.append("evening")
+                    if bedtime: time_flags.append("bedtime")
+                    if as_needed: time_flags.append("as_needed")
+                    
+                    insert_medication_catalog(med_name, med_dose, med_frequency, time_flags, med_notes)
+                    st.success("✅ Medication added to catalog!")
+                    st.rerun()
+                else:
+                    st.error("❌ Medication name is required!")
+        
+        # Display medication catalog
+        catalog = get_medication_catalog()
+        if not catalog.empty:
+            st.subheader("Your Medication Catalog")
+            
+            for _, med in catalog.iterrows():
+                with st.expander(f"💊 {med['name']}"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"**Dose:** {med['default_dose']}")
+                        st.write(f"**Frequency:** {med['default_frequency']}")
+                    with col2:
+                        times = []
+                        if med['morning']: times.append("Morning")
+                        if med['afternoon']: times.append("Afternoon")
+                        if med['evening']: times.append("Evening")
+                        if med['bedtime']: times.append("Bedtime")
+                        if med['as_needed']: times.append("As Needed")
+                        st.write(f"**Times:** {', '.join(times) if times else 'Not specified'}")
+                    
+                    if med['notes']:
+                        st.write(f"**Notes:** {med['notes']}")
+        else:
+            st.info("No medications in catalog yet. Add your first medication above!")
+
+def show_body_map_page():
+    """Display the body map page"""
+    st.header("🗺️ Body Map")
+    
+    tab1, tab2 = st.tabs(["📍 Add Location", "🗺️ View Map"])
+    
+    with tab1:
+        st.subheader("Add Lesion Location")
+        
+        # Select lesion
+        lesions = list_lesions()
+        if lesions.empty:
+            st.warning("No lesions found. Create a lesion first!")
+            return
+        
+        lesion_options = {f"{row['label']} ({row['condition']})": row['id'] for _, row in lesions.iterrows()}
+        selected_lesion_label = st.selectbox("Select Lesion:", list(lesion_options.keys()))
+        selected_lesion_id = lesion_options[selected_lesion_label]
+        
+        # Body view selection
+        view = st.selectbox("Body View:", ["front", "back"], help="Select front or back view of the body")
+        
+        # Body region and side
+        col1, col2 = st.columns(2)
+        with col1:
+            body_region = st.selectbox("Body Region:", BODY_REGIONS)
+        with col2:
+            side = st.selectbox("Side:", BODY_SIDES)
+        
+        # Interactive body map (simplified version)
+        st.subheader("Click on the body map to set location:")
+        
+        # Create a simple interactive map using coordinates
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            # Create a canvas-like interface
+            st.markdown("""
+            **Body Map Interface:**
+            
+            Click in the area below to set coordinates.
+            This is a simplified version - in a full implementation,
+            you would have an actual body silhouette image.
+            """)
+            
+            # Use sliders for x,y coordinates (simplified approach)
+            x_coord = st.slider("X Coordinate (0-100):", 0, 100, 50, key="body_x")
+            y_coord = st.slider("Y Coordinate (0-100):", 0, 100, 50, key="body_y")
+            
+            # Visual representation using plotly
+            try:
+                import plotly.graph_objects as go
+                
+                fig = go.Figure()
+                
+                # Add body outline (simplified rectangle)
+                fig.add_shape(
+                    type="rect",
+                    x0=0, y0=0, x1=100, y1=100,
+                    line=dict(color="black", width=2),
+                    fillcolor="lightgray"
+                )
+                
+                # Add the selected point
+                fig.add_trace(go.Scatter(
+                    x=[x_coord],
+                    y=[y_coord],
+                    mode='markers',
+                    marker=dict(size=15, color='red'),
+                    name=f'Lesion: {selected_lesion_label}'
+                ))
+                
+                fig.update_layout(
+                    title=f"Body Map - {view.title()} View",
+                    xaxis_title="X Coordinate",
+                    yaxis_title="Y Coordinate",
+                    xaxis=dict(range=[0, 100]),
+                    yaxis=dict(range=[0, 100]),
+                    height=400
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+            except ImportError:
+                st.info("📊 Install plotly for interactive body map visualization")
+                st.write(f"**Selected Coordinates:** ({x_coord}, {y_coord})")
+        
+        with col2:
+            st.subheader("Location Details")
+            st.write(f"**Lesion:** {selected_lesion_label}")
+            st.write(f"**View:** {view}")
+            st.write(f"**Region:** {body_region}")
+            st.write(f"**Side:** {side}")
+            st.write(f"**Coordinates:** ({x_coord}, {y_coord})")
+            
+            if st.button("💾 Save Location"):
+                insert_body_map_location(selected_lesion_id, view, x_coord, y_coord, body_region, side)
+                st.success("✅ Location saved successfully!")
+    
+    with tab2:
+        st.subheader("View All Lesion Locations")
+        
+        locations = get_body_map_locations()
+        if not locations.empty:
+            # Group by view
+            for view in ["front", "back"]:
+                view_locations = locations[locations['view'] == view]
+                if not view_locations.empty:
+                    st.subheader(f"{view.title()} View")
+                    
+                    try:
+                        import plotly.graph_objects as go
+                        
+                        # Create map for this view
+                        fig = go.Figure()
+                        
+                        # Add body outline
+                        fig.add_shape(
+                            type="rect",
+                            x0=0, y0=0, x1=100, y1=100,
+                            line=dict(color="black", width=2),
+                            fillcolor="lightgray"
+                        )
+                        
+                        # Add all lesions for this view
+                        for _, loc in view_locations.iterrows():
+                            fig.add_trace(go.Scatter(
+                                x=[loc['x_coord']],
+                                y=[loc['y_coord']],
+                                mode='markers+text',
+                                marker=dict(size=12, color=COLOR_SCHEMES['body_map'][loc['id'] % len(COLOR_SCHEMES['body_map'])]),
+                                text=[loc['label']],
+                                textposition="top center",
+                                name=loc['label']
+                            ))
+                        
+                        fig.update_layout(
+                            title=f"Lesion Locations - {view.title()} View",
+                            xaxis_title="X Coordinate",
+                            yaxis_title="Y Coordinate",
+                            xaxis=dict(range=[0, 100]),
+                            yaxis=dict(range=[0, 100]),
+                            height=400
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                    except ImportError:
+                        st.info("📊 Install plotly for interactive body map visualization")
+                    
+                    # Show details
+                    for _, loc in view_locations.iterrows():
+                        st.write(f"**{loc['label']}** ({loc['condition']}) - {loc['body_region']} ({loc['side']}) at ({loc['x_coord']:.1f}, {loc['y_coord']:.1f})")
+        else:
+            st.info("No lesion locations saved yet. Add locations using the 'Add Location' tab!")
 
 if __name__ == "__main__":
     main()

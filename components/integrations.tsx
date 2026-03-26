@@ -102,7 +102,7 @@ export default function Integrations({ records, onRecordsImported }: Integration
       )}
 
       <div>
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
+        <h2 className="mb-2 bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-3xl font-bold text-transparent">
           App Integrations
         </h2>
         <p className="text-foreground/70">Connect SkinTrack+ with your other applications</p>
@@ -110,7 +110,7 @@ export default function Integrations({ records, onRecordsImported }: Integration
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* API Key Management */}
-        <Card className="glass-card border-white/20">
+        <Card className="glass-card border-slate-200/80 dark:border-slate-700">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <span>🔑</span> API Key
@@ -154,7 +154,7 @@ export default function Integrations({ records, onRecordsImported }: Integration
         </Card>
 
         {/* Export Data */}
-        <Card className="glass-card border-white/20">
+        <Card className="glass-card border-slate-200/80 dark:border-slate-700">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <span>📤</span> Export Data
@@ -182,7 +182,7 @@ export default function Integrations({ records, onRecordsImported }: Integration
         </Card>
 
         {/* Import Data */}
-        <Card className="glass-card border-white/20">
+        <Card className="glass-card border-slate-200/80 dark:border-slate-700">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <span>📥</span> Import Data
@@ -207,7 +207,7 @@ export default function Integrations({ records, onRecordsImported }: Integration
         </Card>
 
         {/* Webhook Configuration */}
-        <Card className="glass-card border-white/20">
+        <Card className="glass-card border-slate-200/80 dark:border-slate-700">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <span>🔔</span> Webhooks
@@ -234,7 +234,7 @@ export default function Integrations({ records, onRecordsImported }: Integration
       </div>
 
       {/* API Documentation */}
-      <Card className="glass-card border-white/20">
+      <Card className="glass-card border-slate-200/80 dark:border-slate-700">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <span>📚</span> API Documentation
