@@ -1,45 +1,67 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ChangeEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ScanIcon as Analyze, Upload } from "lucide-react"
 
-export default function ImageAnalysis() {
-  const [selectedImage, setSelectedImage] = useState(null)
-  const [analysis, setAnalysis] = useState(null)
-  const [analyzing, setAnalyzing] = useState(false)
+type AnalysisResult = {
+  area: string
+  redness: string
+  irregularity: string
+  asymmetry: string
+  texture: string
+  confidence: string
+}
 
-  const handleImageUpload = (event) => {
-    const file = event.target.files[0]
+export default function ImageAnalysis() {
+  const [selectedImage, setSelectedImage] = useState<string | null>(null)
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analysisError, setAnalysisError] = useState<string | null>(null)
+
+  const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
     if (file) {
       const reader = new FileReader()
       reader.onload = (e) => {
-        setSelectedImage(e.target.result)
-        setAnalysis(null)
+        const result = e.target?.result
+        if (typeof result === "string") {
+          setSelectedImage(result)
+          setAnalysis(null)
+          setAnalysisError(null)
+        }
+      }
+      reader.onerror = () => {
+        setAnalysisError("Could not read that file. Try a smaller image or a different format.")
       }
       reader.readAsDataURL(file)
     }
   }
 
-  const analyzeImage = async () => {
+  const analyzeImage = () => {
     if (!selectedImage) return
 
     setAnalyzing(true)
+    setAnalysisError(null)
 
-    // Simulate image analysis (in a real app, this would use computer vision APIs)
-    setTimeout(() => {
-      const mockAnalysis = {
-        area: (Math.random() * 10 + 1).toFixed(2),
-        redness: (Math.random() * 100).toFixed(1),
-        irregularity: (Math.random() * 1).toFixed(3),
-        asymmetry: (Math.random() * 1).toFixed(3),
-        texture: (Math.random() * 50 + 10).toFixed(1),
-        confidence: (Math.random() * 20 + 80).toFixed(1),
+    window.setTimeout(() => {
+      try {
+        const mockAnalysis: AnalysisResult = {
+          area: (Math.random() * 10 + 1).toFixed(2),
+          redness: (Math.random() * 100).toFixed(1),
+          irregularity: (Math.random() * 1).toFixed(3),
+          asymmetry: (Math.random() * 1).toFixed(3),
+          texture: (Math.random() * 50 + 10).toFixed(1),
+          confidence: (Math.random() * 20 + 80).toFixed(1),
+        }
+        setAnalysis(mockAnalysis)
+      } catch {
+        setAnalysisError("Analysis step failed. Try again or use a smaller image.")
+      } finally {
+        setAnalyzing(false)
       }
-      setAnalysis(mockAnalysis)
-      setAnalyzing(false)
     }, 2000)
   }
 
@@ -51,12 +73,24 @@ export default function ImageAnalysis() {
             <Upload className="w-5 h-5" />
             Upload Image for Analysis
           </CardTitle>
-          <CardDescription>Select an image to analyze skin condition metrics</CardDescription>
+          <CardDescription>
+            Demo metrics only in this PWA build. The Python/Streamlit tool can compute real lesion metrics when that
+            pipeline is connected.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Input type="file" accept="image/*" onChange={handleImageUpload} className="cursor-pointer" />
         </CardContent>
       </Card>
+
+      {analysisError && (
+        <div
+          role="alert"
+          className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          {analysisError}
+        </div>
+      )}
 
       {selectedImage && (
         <Card>
@@ -85,46 +119,46 @@ export default function ImageAnalysis() {
       {analysis && (
         <Card>
           <CardHeader>
-            <CardTitle>📊 Analysis Results</CardTitle>
+            <CardTitle>Analysis Results (demo)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">{analysis.area}</div>
-                <div className="text-sm text-gray-600">Area (cm²)</div>
+              <div className="text-center p-4 bg-blue-50 rounded-lg dark:bg-blue-950/30">
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{analysis.area}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Area (cm²)</div>
               </div>
 
-              <div className="text-center p-4 bg-red-50 rounded-lg">
-                <div className="text-2xl font-bold text-red-600">{analysis.redness}%</div>
-                <div className="text-sm text-gray-600">Redness Score</div>
+              <div className="text-center p-4 bg-red-50 rounded-lg dark:bg-red-950/30">
+                <div className="text-2xl font-bold text-red-600 dark:text-red-400">{analysis.redness}%</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Redness Score</div>
               </div>
 
-              <div className="text-center p-4 bg-yellow-50 rounded-lg">
-                <div className="text-2xl font-bold text-yellow-600">{analysis.irregularity}</div>
-                <div className="text-sm text-gray-600">Border Irregularity</div>
+              <div className="text-center p-4 bg-yellow-50 rounded-lg dark:bg-yellow-950/30">
+                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{analysis.irregularity}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Border Irregularity</div>
               </div>
 
               <div className="rounded-lg bg-cyan-50 p-4 text-center dark:bg-cyan-950/40">
                 <div className="text-2xl font-bold text-cyan-700 dark:text-cyan-400">{analysis.asymmetry}</div>
-                <div className="text-sm text-gray-600">Asymmetry</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Asymmetry</div>
               </div>
 
-              <div className="text-center p-4 bg-green-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">{analysis.texture}</div>
-                <div className="text-sm text-gray-600">Texture Variance</div>
+              <div className="text-center p-4 bg-green-50 rounded-lg dark:bg-green-950/30">
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{analysis.texture}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Texture Variance</div>
               </div>
 
-              <div className="text-center p-4 bg-indigo-50 rounded-lg">
-                <div className="text-2xl font-bold text-indigo-600">{analysis.confidence}%</div>
-                <div className="text-sm text-gray-600">Confidence</div>
+              <div className="text-center p-4 bg-indigo-50 rounded-lg dark:bg-indigo-950/30">
+                <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{analysis.confidence}%</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Confidence</div>
               </div>
             </div>
 
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <h3 className="font-semibold mb-2">Analysis Notes:</h3>
-              <p className="text-sm text-gray-600">
-                This analysis uses simplified computer vision techniques. For medical diagnosis, always consult with a
-                healthcare professional.
+            <div className="mt-4 p-4 bg-muted rounded-lg">
+              <h3 className="font-semibold mb-2">Notes</h3>
+              <p className="text-sm text-muted-foreground">
+                These numbers are simulated for UI demonstration. They are not diagnostic. For medical decisions, see a
+                qualified clinician.
               </p>
             </div>
           </CardContent>

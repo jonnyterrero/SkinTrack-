@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Work_Sans } from "next/font/google"
 import "./globals.css"
+import { AppProviders } from "./providers"
 
 const workSans = Work_Sans({
   subsets: ["latin"],
@@ -49,7 +50,9 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
         <link rel="manifest" href="/manifest.json" />
       </head>
-      <body className={`${workSans.className} font-sans antialiased`}>{children}</body>
+      <body className={`${workSans.className} font-sans antialiased`}>
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   )
 }

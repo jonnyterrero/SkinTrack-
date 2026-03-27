@@ -1,59 +1,41 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-interface Profile {
-  name: string
-  age: string
-  gender: string
-  skinType: string
-  conditions: string
-  medications: string
-  allergies: string
-  notes: string
-}
+import { useSkinTrack } from "@/components/skintrack-provider"
+import type { UserProfile } from "@/lib/types"
 
 export default function ProfileManager() {
-  const [profile, setProfile] = useState<Profile>({
-    name: "",
-    age: "",
-    gender: "",
-    skinType: "",
-    conditions: "",
-    medications: "",
-    allergies: "",
-    notes: "",
-  })
+  const { profile, setProfile, loading } = useSkinTrack()
+  const [draft, setDraft] = useState<UserProfile>(profile)
 
   useEffect(() => {
-    const savedProfile = localStorage.getItem("skintrack-profile")
-    if (savedProfile) {
-      setProfile(JSON.parse(savedProfile))
-    }
-  }, [])
+    setDraft(profile)
+  }, [profile])
 
-  const handleSave = () => {
-    localStorage.setItem("skintrack-profile", JSON.stringify(profile))
-    alert("Profile saved successfully!")
+  const handleInputChange = (field: keyof UserProfile, value: string) => {
+    setDraft((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleInputChange = (field: keyof Profile, value: string) => {
-    setProfile((prev) => ({ ...prev, [field]: value }))
+  const handleSave = () => {
+    setProfile(draft)
+    alert("Profile saved successfully!")
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="mb-2 bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-3xl font-bold text-transparent">
-          👤 Profile Management
+          Profile Management
         </h2>
-        <p className="text-foreground/70">Manage your personal information and medical history</p>
+        <p className="text-foreground/70">
+          Stored locally in your browser{loading ? " (loading…)" : ""}. Use export in the Data tab for backups.
+        </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
@@ -66,7 +48,7 @@ export default function ProfileManager() {
               <Label htmlFor="name">Full Name</Label>
               <Input
                 id="name"
-                value={profile.name}
+                value={draft.name}
                 onChange={(e) => handleInputChange("name", e.target.value)}
                 className="glass-input"
                 placeholder="Enter your full name"
@@ -77,7 +59,7 @@ export default function ProfileManager() {
               <Input
                 id="age"
                 type="number"
-                value={profile.age}
+                value={draft.age}
                 onChange={(e) => handleInputChange("age", e.target.value)}
                 className="glass-input"
                 placeholder="Enter your age"
@@ -85,7 +67,7 @@ export default function ProfileManager() {
             </div>
             <div>
               <Label htmlFor="gender">Gender</Label>
-              <Select value={profile.gender} onValueChange={(value) => handleInputChange("gender", value)}>
+              <Select value={draft.gender} onValueChange={(value) => handleInputChange("gender", value)}>
                 <SelectTrigger className="glass-input">
                   <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
@@ -99,7 +81,7 @@ export default function ProfileManager() {
             </div>
             <div>
               <Label htmlFor="skinType">Skin Type</Label>
-              <Select value={profile.skinType} onValueChange={(value) => handleInputChange("skinType", value)}>
+              <Select value={draft.skinType} onValueChange={(value) => handleInputChange("skinType", value)}>
                 <SelectTrigger className="glass-input">
                   <SelectValue placeholder="Select skin type" />
                 </SelectTrigger>
@@ -125,7 +107,7 @@ export default function ProfileManager() {
               <Label htmlFor="conditions">Skin Conditions</Label>
               <Textarea
                 id="conditions"
-                value={profile.conditions}
+                value={draft.conditions}
                 onChange={(e) => handleInputChange("conditions", e.target.value)}
                 className="glass-input"
                 placeholder="List any known skin conditions..."
@@ -136,7 +118,7 @@ export default function ProfileManager() {
               <Label htmlFor="medications">Current Medications</Label>
               <Textarea
                 id="medications"
-                value={profile.medications}
+                value={draft.medications}
                 onChange={(e) => handleInputChange("medications", e.target.value)}
                 className="glass-input"
                 placeholder="List current medications..."
@@ -147,7 +129,7 @@ export default function ProfileManager() {
               <Label htmlFor="allergies">Known Allergies</Label>
               <Textarea
                 id="allergies"
-                value={profile.allergies}
+                value={draft.allergies}
                 onChange={(e) => handleInputChange("allergies", e.target.value)}
                 className="glass-input"
                 placeholder="List any known allergies..."
@@ -164,7 +146,7 @@ export default function ProfileManager() {
         </CardHeader>
         <CardContent>
           <Textarea
-            value={profile.notes}
+            value={draft.notes}
             onChange={(e) => handleInputChange("notes", e.target.value)}
             className="glass-input"
             placeholder="Any additional notes about your skin health journey..."
@@ -174,11 +156,8 @@ export default function ProfileManager() {
       </Card>
 
       <div className="flex justify-end">
-        <Button
-          onClick={handleSave}
-          className="glass-button rounded-lg border-0 px-8 text-white"
-        >
-          💾 Save Profile
+        <Button onClick={handleSave} className="glass-button rounded-lg border-0 px-8 text-white">
+          Save Profile
         </Button>
       </div>
     </div>

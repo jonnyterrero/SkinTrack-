@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import {
+  BookOpen,
   ChevronLeft,
   Home,
   LineChart,
@@ -20,15 +21,19 @@ import ImageGallery from "@/components/image-gallery"
 import ProfileManager from "@/components/profile-manager"
 import BodyMap from "@/components/body-map"
 import Integrations from "@/components/integrations"
+import AboutSkinTrack from "@/components/about-skintrack"
+import { StorageErrorBanner } from "@/components/storage-error-banner"
+import { useSkinTrack } from "@/components/skintrack-provider"
 import { cn } from "@/lib/utils"
+import type { NewSkinTrackRecordInput } from "@/lib/types"
 
 const navTriggerClass =
   "flex h-auto flex-col items-center gap-1 rounded-lg p-2 text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-cyan-600 data-[state=active]:bg-cyan-50 data-[state=active]:text-cyan-600 dark:text-gray-400 dark:hover:bg-slate-800 dark:hover:text-cyan-400 dark:data-[state=active]:bg-cyan-950/40 dark:data-[state=active]:text-cyan-400"
 
 export default function HomePage() {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const { records, loading, storageError, clearStorageError, saveRecord } = useSkinTrack()
+  const [deferredPrompt, setDeferredPrompt] = useState<unknown>(null)
   const [isInstalled, setIsInstalled] = useState(false)
-  const [records, setRecords] = useState<any[]>([])
   const [showUpdateNotification, setShowUpdateNotification] = useState(false)
   const [tab, setTab] = useState("home")
 
@@ -37,7 +42,7 @@ export default function HomePage() {
       navigator.serviceWorker
         .register("/sw.js")
         .then((registration) => {
-          console.log("[v0] Service Worker registered:", registration)
+          console.log("[SkinTrack+] Service Worker registered:", registration)
 
           setInterval(() => {
             registration.update()
@@ -58,11 +63,11 @@ export default function HomePage() {
           })
         })
         .catch((error) => {
-          console.log("[v0] Service Worker registration failed:", error)
+          console.log("[SkinTrack+] Service Worker registration failed:", error)
         })
 
       navigator.serviceWorker.addEventListener("controllerchange", () => {
-        console.log("[v0] New service worker activated, reloading...")
+        console.log("[SkinTrack+] New service worker activated, reloading...")
         setShowUpdateNotification(true)
         setTimeout(() => {
           window.location.reload()
@@ -87,11 +92,6 @@ export default function HomePage() {
       setIsInstalled(true)
     }
 
-    const savedRecords = localStorage.getItem("skintrack-records")
-    if (savedRecords) {
-      setRecords(JSON.parse(savedRecords))
-    }
-
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
       window.removeEventListener("appinstalled", handleAppInstalled)
@@ -99,31 +99,25 @@ export default function HomePage() {
   }, [])
 
   const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt()
-      const { outcome } = await deferredPrompt.userChoice
-      console.log("[v0] Install prompt outcome:", outcome)
+    const prompt = deferredPrompt as { prompt?: () => void; userChoice?: Promise<{ outcome: string }> } | null
+    if (prompt?.prompt) {
+      prompt.prompt()
+      const { outcome } = await (prompt.userChoice ?? Promise.resolve({ outcome: "dismissed" }))
+      console.log("[SkinTrack+] Install prompt outcome:", outcome)
       setDeferredPrompt(null)
     }
   }
 
-  const handleRecordSaved = (record: any) => {
-    const newRecord = {
-      ...record,
-      id: Date.now(),
-      timestamp: new Date().toISOString(),
-    }
-    const updatedRecords = [newRecord, ...records]
-    setRecords(updatedRecords)
-    localStorage.setItem("skintrack-records", JSON.stringify(updatedRecords))
+  const handleRecordSaved = async (input: NewSkinTrackRecordInput) => {
+    await saveRecord(input)
   }
 
-  const handleImageCaptured = (imageRecord: any) => {
-    handleRecordSaved(imageRecord)
+  const handleImageCaptured = (payload: { type: "image"; filename: string; image: string }) => {
+    void handleRecordSaved(payload)
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
+    <div className="st-app-shell">
       <Tabs value={tab} onValueChange={setTab} className="flex min-h-screen flex-col gap-0">
         <div className="relative container mx-auto flex-1 px-4 py-6 pb-28">
           {showUpdateNotification && (
@@ -182,7 +176,15 @@ export default function HomePage() {
             </div>
           </div>
 
-          {isInstalled && (
+          <StorageErrorBanner message={storageError} onDismiss={clearStorageError} />
+
+          {loading ? (
+            <div className="glass-card rounded-2xl border border-slate-200/80 p-8 text-center dark:border-slate-700">
+              <p className="text-muted-foreground">Loading your local data…</p>
+            </div>
+          ) : null}
+
+          {!loading && isInstalled && (
             <div className="mb-4 rounded-xl border border-emerald-200/80 bg-emerald-50/90 p-3 dark:border-emerald-800 dark:bg-emerald-950/40">
               <div className="flex items-center gap-2 text-sm font-medium text-emerald-800 dark:text-emerald-300">
                 <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>
@@ -193,6 +195,15 @@ export default function HomePage() {
             </div>
           )}
 
+          {!loading && records.length === 0 ? (
+            <div className="mb-6 rounded-xl border border-dashed border-cyan-200/80 bg-white/60 p-4 text-center text-sm text-muted-foreground dark:border-cyan-900/50 dark:bg-slate-900/40">
+              No entries yet. Add a symptom log or save a photo from the <strong>Scan</strong> tab, or import a backup
+              from <strong>Data</strong> (integrations).
+            </div>
+          ) : null}
+
+          {!loading ? (
+            <>
           <TabsContent value="home" className="mt-0 space-y-6 outline-none focus-visible:outline-none">
             <Card className="glass-card border-slate-200/80 dark:border-slate-700">
               <CardHeader>
@@ -282,12 +293,19 @@ export default function HomePage() {
 
           <TabsContent value="integrations" className="mt-0 outline-none focus-visible:outline-none">
             <div className="glass-card rounded-2xl p-6">
-              <Integrations records={records} onRecordsImported={setRecords} />
+              <Integrations />
             </div>
           </TabsContent>
+
+          <TabsContent value="about" className="mt-0 outline-none focus-visible:outline-none">
+            <div className="glass-card rounded-2xl p-6">
+              <AboutSkinTrack />
+            </div>
+          </TabsContent>
+            </>
+          ) : null}
         </div>
 
-        {/* Full-width strip + centered max-w-md row (GastroGuard pattern) */}
         <div
           className={cn(
             "fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white/90 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/90",
@@ -296,7 +314,7 @@ export default function HomePage() {
         >
           <TabsList
             className={cn(
-              "mx-auto grid h-auto w-full max-w-md grid-cols-5 gap-0 rounded-none border-0 bg-transparent px-4 py-2 text-muted-foreground shadow-none backdrop-blur-none",
+              "mx-auto grid h-auto w-full max-w-2xl grid-cols-6 gap-0 rounded-none border-0 bg-transparent px-2 py-2 text-muted-foreground shadow-none backdrop-blur-none sm:px-4",
             )}
           >
             <TabsTrigger value="home" className={cn(navTriggerClass, "!shadow-none data-[state=active]:!bg-cyan-50 dark:data-[state=active]:!bg-cyan-950/40")}>
@@ -313,11 +331,18 @@ export default function HomePage() {
             </TabsTrigger>
             <TabsTrigger value="insights" className={cn(navTriggerClass, "!shadow-none data-[state=active]:!bg-cyan-50 dark:data-[state=active]:!bg-cyan-950/40")}>
               <LineChart className="h-5 w-5 shrink-0" aria-hidden />
-              <span className="text-xs font-medium">Insights</span>
+              <span className="text-[10px] font-medium sm:text-xs">Insights</span>
             </TabsTrigger>
-            <TabsTrigger value="integrations" className={cn(navTriggerClass, "!shadow-none data-[state=active]:!bg-cyan-50 dark:data-[state=active]:!bg-cyan-950/40")}>
+            <TabsTrigger
+              value="integrations"
+              className={cn(navTriggerClass, "!shadow-none data-[state=active]:!bg-cyan-50 dark:data-[state=active]:!bg-cyan-950/40")}
+            >
               <Link2 className="h-5 w-5 shrink-0" aria-hidden />
-              <span className="text-[10px] font-medium leading-tight sm:text-xs">Integrations</span>
+              <span className="text-[10px] font-medium leading-tight sm:text-xs">Data</span>
+            </TabsTrigger>
+            <TabsTrigger value="about" className={cn(navTriggerClass, "!shadow-none data-[state=active]:!bg-cyan-50 dark:data-[state=active]:!bg-cyan-950/40")}>
+              <BookOpen className="h-5 w-5 shrink-0" aria-hidden />
+              <span className="text-[10px] font-medium sm:text-xs">About</span>
             </TabsTrigger>
           </TabsList>
         </div>

@@ -5,6 +5,10 @@
 
 /* Aligned with GastroGuard (cyan primary, orange accent, soft page gradient) */
 :root {
+  /* Semantic app tokens (SkinTrack+ layout / alerts) */
+  --st-page-gradient: linear-gradient(to bottom right, #eff6ff, #ffffff, #ecfeff);
+  --st-warning-bg: rgba(254, 252, 232, 0.95);
+
   --background: #ffffff;
   --foreground: #4b5563;
   --card: #f9fafb;
@@ -41,6 +45,9 @@
 }
 
 .dark {
+  --st-page-gradient: linear-gradient(to bottom right, #0f172a, #0f172a, #0c4a6e);
+  --st-warning-bg: rgba(69, 26, 3, 0.35);
+
   --background: #0f172a;
   --foreground: #f1f5f9;
   --card: #1e293b;
@@ -120,6 +127,11 @@
   }
   body {
     @apply min-h-screen bg-white text-foreground antialiased;
+  }
+
+  .st-app-shell {
+    min-height: 100vh;
+    background: var(--st-page-gradient);
   }
 
   .glass {

@@ -3,9 +3,10 @@
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import type { SkinTrackRecord } from "@/lib/types"
 
 interface BodyMapProps {
-  records: any[]
+  records: SkinTrackRecord[]
 }
 
 export default function BodyMap({ records }: BodyMapProps) {
@@ -30,14 +31,14 @@ export default function BodyMap({ records }: BodyMapProps) {
   ]
 
   const getRecordsForArea = (areaId: string) => {
-    return records.filter((record) => record.bodyArea === areaId)
+    return records.filter((record) => "bodyArea" in record && record.bodyArea === areaId)
   }
 
   const getAreaColor = (areaId: string) => {
     const areaRecords = getRecordsForArea(areaId)
     if (areaRecords.length === 0) return "bg-gray-400/30"
 
-    const recentRecord = areaRecords[0]
+    const recentRecord = areaRecords[0] as SkinTrackRecord & { severity?: string }
     if (recentRecord.severity === "high") return "bg-red-500/60"
     if (recentRecord.severity === "medium") return "bg-yellow-500/60"
     return "bg-green-500/60"
@@ -120,20 +121,20 @@ export default function BodyMap({ records }: BodyMapProps) {
                         <span className="font-medium">{record.type === "image" ? "📸 Image" : "📝 Symptom"}</span>
                         <Badge
                           variant={
-                            record.severity === "high"
+                            "severity" in record && record.severity === "high"
                               ? "destructive"
-                              : record.severity === "medium"
+                              : "severity" in record && record.severity === "medium"
                                 ? "secondary"
                                 : "default"
                           }
                         >
-                          {record.severity}
+                          {"severity" in record ? record.severity ?? "—" : "—"}
                         </Badge>
                       </div>
                       <p className="text-sm text-foreground/70 mb-2">
                         {new Date(record.timestamp).toLocaleDateString()}
                       </p>
-                      {record.notes && <p className="text-sm">{record.notes}</p>}
+                      {"notes" in record && record.notes ? <p className="text-sm">{record.notes}</p> : null}
                     </div>
                   ))
                 ) : (

@@ -10,6 +10,7 @@ import { Slider } from "@/components/ui/slider"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Save } from "lucide-react"
+import type { NewSymptomRecordInput } from "@/lib/types"
 
 const CONDITIONS = [
   "eczema",
@@ -23,7 +24,11 @@ const CONDITIONS = [
   "cold sores",
 ]
 
-export default function SymptomTracker({ onRecordSaved }) {
+type Props = {
+  onRecordSaved: (input: NewSymptomRecordInput) => void | Promise<void>
+}
+
+export default function SymptomTracker({ onRecordSaved }: Props) {
   const [formData, setFormData] = useState({
     lesionLabel: "",
     condition: "",
@@ -38,20 +43,26 @@ export default function SymptomTracker({ onRecordSaved }) {
     notes: "",
   })
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    const record = {
-      ...formData,
+    const input: NewSymptomRecordInput = {
+      lesionLabel: formData.lesionLabel,
+      condition: formData.condition,
       itch: formData.itch[0],
       pain: formData.pain[0],
+      sleep: formData.sleep,
       stress: formData.stress[0],
+      triggers: formData.triggers,
+      newProducts: formData.newProducts,
+      medications: formData.medications,
+      adherence: formData.adherence,
+      notes: formData.notes,
       type: "symptom",
     }
 
-    onRecordSaved(record)
+    void onRecordSaved(input)
 
-    // Reset form
     setFormData({
       lesionLabel: "",
       condition: "",
@@ -70,7 +81,7 @@ export default function SymptomTracker({ onRecordSaved }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>📝 Symptom Tracker</CardTitle>
+        <CardTitle>Symptom Tracker</CardTitle>
         <CardDescription>Record your symptoms and track your skin condition progress</CardDescription>
       </CardHeader>
       <CardContent>
@@ -89,10 +100,7 @@ export default function SymptomTracker({ onRecordSaved }) {
 
             <div className="space-y-2">
               <Label htmlFor="condition">Condition Type</Label>
-              <Select
-                value={formData.condition}
-                onValueChange={(value) => setFormData({ ...formData, condition: value })}
-              >
+              <Select value={formData.condition} onValueChange={(value) => setFormData({ ...formData, condition: value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select condition" />
                 </SelectTrigger>
@@ -138,9 +146,9 @@ export default function SymptomTracker({ onRecordSaved }) {
                 <Input
                   id="sleep"
                   type="number"
-                  min="0"
-                  max="24"
-                  step="0.5"
+                  min={0}
+                  max={24}
+                  step={0.5}
                   value={formData.sleep}
                   onChange={(e) => setFormData({ ...formData, sleep: Number.parseFloat(e.target.value) })}
                 />
@@ -195,7 +203,7 @@ export default function SymptomTracker({ onRecordSaved }) {
             <Checkbox
               id="adherence"
               checked={formData.adherence}
-              onCheckedChange={(checked) => setFormData({ ...formData, adherence: checked })}
+              onCheckedChange={(checked) => setFormData({ ...formData, adherence: Boolean(checked) })}
             />
             <Label htmlFor="adherence">Took medications as planned</Label>
           </div>

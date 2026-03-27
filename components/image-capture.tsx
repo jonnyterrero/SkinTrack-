@@ -1,23 +1,28 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, type ChangeEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Camera, Upload, Save } from "lucide-react"
 
-export default function ImageCapture({ onImageCaptured }) {
-  const [capturedImage, setCapturedImage] = useState(null)
-  const [imageFile, setImageFile] = useState(null)
-  const fileInputRef = useRef(null)
+type Props = {
+  onImageCaptured: (payload: { type: "image"; filename: string; image: string }) => void
+}
 
-  const handleFileUpload = (event) => {
-    const file = event.target.files[0]
+export default function ImageCapture({ onImageCaptured }: Props) {
+  const [capturedImage, setCapturedImage] = useState<string | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
     if (file) {
       setImageFile(file)
       const reader = new FileReader()
       reader.onload = (e) => {
-        setCapturedImage(e.target.result)
+        const result = e.target?.result
+        if (typeof result === "string") setCapturedImage(result)
       }
       reader.readAsDataURL(file)
     }
@@ -25,12 +30,11 @@ export default function ImageCapture({ onImageCaptured }) {
 
   const saveImage = () => {
     if (capturedImage) {
-      const record = {
+      onImageCaptured({
         image: capturedImage,
         filename: imageFile?.name || `capture_${Date.now()}.jpg`,
         type: "image",
-      }
-      onImageCaptured(record)
+      })
       setCapturedImage(null)
       setImageFile(null)
       if (fileInputRef.current) {
@@ -88,14 +92,8 @@ export default function ImageCapture({ onImageCaptured }) {
           <CardDescription>Take a photo directly with your device camera</CardDescription>
         </CardHeader>
         <CardContent>
-          <Input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFileUpload}
-            className="cursor-pointer"
-          />
-          <p className="text-sm text-gray-500 mt-2">This will open your device's camera app</p>
+          <Input type="file" accept="image/*" capture="environment" onChange={handleFileUpload} className="cursor-pointer" />
+          <p className="text-sm text-gray-500 mt-2">This will open your device&apos;s camera app</p>
         </CardContent>
       </Card>
     </div>

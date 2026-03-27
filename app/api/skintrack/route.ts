@@ -1,30 +1,23 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-// GET - Retrieve all records
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Check API key
-    const authHeader = request.headers.get("authorization")
-    const apiKey = authHeader?.replace("Bearer ", "")
-
-    // In a real app, validate against stored API key
-    // For now, we'll return a message about client-side storage
-
     return NextResponse.json({
-      message: "SkinTrack+ uses client-side storage. Access data through the web interface or export feature.",
+      message:
+        "SkinTrack+ stores health data in the browser (localStorage + IndexedDB). This route does not read your private records.",
       endpoint: "/api/skintrack",
       methods: ["GET", "POST"],
-      documentation: "See Integrations tab for full API documentation",
+      persistence: "local-first",
+      future: "Optional Supabase sync will use server-side routes with auth; see supabase/schema.sql in the repo.",
+      documentation: "Open the Data tab in the app for export/import and API notes.",
     })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-// POST - Add a new record
 export async function POST(request: NextRequest) {
   try {
-    // Check API key
     const authHeader = request.headers.get("authorization")
     const apiKey = authHeader?.replace("Bearer ", "")
 
@@ -32,14 +25,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "API key required" }, { status: 401 })
     }
 
-    const body = await request.json()
+    const body = (await request.json()) as { type?: string; data?: unknown }
 
-    // Validate record structure
-    if (!body.type || !body.data) {
+    if (!body.type || body.data === undefined) {
       return NextResponse.json({ error: "Invalid record format. Required: type, data" }, { status: 400 })
     }
 
-    // Create record with timestamp
     const record = {
       id: Date.now(),
       timestamp: new Date().toISOString(),
@@ -49,10 +40,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Record created. Note: SkinTrack+ uses client-side storage. Use the web interface to view.",
+      message:
+        "Echo only: no server database write. Add the same entry in the app UI, or wait for Supabase-backed sync to be enabled.",
       record,
     })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
