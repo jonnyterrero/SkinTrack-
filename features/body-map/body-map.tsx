@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { BODY_AREA_DEFINITIONS } from "@/lib/domain/body-areas"
+import { locationIdToBodyMapAreaId } from "@/lib/domain/skin-event-metrics"
 import type { SkinTrackRecord } from "@/lib/types"
 
 interface BodyMapProps {
@@ -17,6 +18,10 @@ export default function BodyMap({ records }: BodyMapProps) {
     return records.filter((record) => {
       if (record.type === "symptom" && record.bodyArea === areaId) return true
       if (record.type === "image" && record.metadata?.bodyArea === areaId) return true
+      if (record.type === "skin_event") {
+        const mapped = locationIdToBodyMapAreaId(record.locationId)
+        return mapped === areaId
+      }
       return false
     })
   }
@@ -26,6 +31,11 @@ export default function BodyMap({ records }: BodyMapProps) {
     if (areaRecords.length === 0) return "bg-gray-400/30"
 
     const recentRecord = areaRecords[0]
+    if (recentRecord.type === "skin_event") {
+      if (recentRecord.severity04 >= 4) return "bg-red-500/60"
+      if (recentRecord.severity04 >= 2) return "bg-yellow-500/60"
+      return "bg-green-500/60"
+    }
     if (recentRecord.type === "symptom") {
       if (recentRecord.severity === "high") return "bg-red-500/60"
       if (recentRecord.severity === "medium") return "bg-yellow-500/60"
@@ -105,17 +115,29 @@ export default function BodyMap({ records }: BodyMapProps) {
                   getRecordsForArea(selectedArea).map((record, index) => (
                     <div key={index} className="glass rounded-lg border border-white/10 p-4">
                       <div className="mb-2 flex items-start justify-between">
-                        <span className="font-medium">{record.type === "image" ? "Image" : "Symptom"}</span>
+                        <span className="font-medium">
+                          {record.type === "image" ? "Image" : record.type === "skin_event" ? "Skin event" : "Symptom"}
+                        </span>
                         <Badge
                           variant={
-                            "severity" in record && record.severity === "high"
-                              ? "destructive"
-                              : "severity" in record && record.severity === "medium"
-                                ? "secondary"
-                                : "default"
+                            record.type === "skin_event"
+                              ? record.severity04 >= 3
+                                ? "destructive"
+                                : record.severity04 >= 2
+                                  ? "secondary"
+                                  : "default"
+                              : "severity" in record && record.severity === "high"
+                                ? "destructive"
+                                : "severity" in record && record.severity === "medium"
+                                  ? "secondary"
+                                  : "default"
                           }
                         >
-                          {"severity" in record ? record.severity ?? "—" : "—"}
+                          {record.type === "skin_event"
+                            ? `sev ${record.severity04}`
+                            : "severity" in record
+                              ? record.severity ?? "—"
+                              : "—"}
                         </Badge>
                       </div>
                       <p className="mb-2 text-sm text-foreground/70">{new Date(record.timestamp).toLocaleDateString()}</p>
@@ -125,7 +147,9 @@ export default function BodyMap({ records }: BodyMapProps) {
                 ) : (
                   <div className="py-8 text-center text-foreground/60">
                     <p>No records found for this area</p>
-                    <p className="mt-2 text-sm">Log a symptom with a body area in Insights, or capture an image with a location in Scan.</p>
+                    <p className="mt-2 text-sm">
+                      Use a skin event (v1 location) or legacy symptom log in Insights, or add an image with location in Scan.
+                    </p>
                   </div>
                 )}
               </div>

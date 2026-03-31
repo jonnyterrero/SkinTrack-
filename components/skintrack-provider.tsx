@@ -11,10 +11,17 @@ import {
 } from "react"
 import { createLocalSkinTrackRepository } from "@/lib/data/local-repository"
 import type { SkinTrackRepository } from "@/lib/data/repository"
-import { emptyUserProfile, type NewSkinTrackRecordInput, type SkinTrackRecord, type UserProfile } from "@/lib/types"
+import {
+  emptyUserProfile,
+  type Lesion,
+  type NewSkinTrackRecordInput,
+  type SkinTrackRecord,
+  type UserProfile,
+} from "@/lib/types"
 
 type SkinTrackContextValue = {
   records: SkinTrackRecord[]
+  lesions: Lesion[]
   profile: UserProfile
   loading: boolean
   storageError: string | null
@@ -22,6 +29,7 @@ type SkinTrackContextValue = {
   refresh: () => Promise<void>
   saveRecord: (input: NewSkinTrackRecordInput) => Promise<boolean>
   setProfile: (p: UserProfile) => void
+  upsertLesion: (lesion: Lesion) => void
   replaceRecords: (records: SkinTrackRecord[]) => Promise<boolean>
   importBundle: (raw: unknown) => Promise<{ ok: true } | { ok: false; error: string }>
   repository: SkinTrackRepository
@@ -33,6 +41,7 @@ export function SkinTrackProvider({ children }: { children: ReactNode }) {
   const repository = useMemo(() => createLocalSkinTrackRepository(), [])
 
   const [records, setRecords] = useState<SkinTrackRecord[]>([])
+  const [lesions, setLesionsState] = useState<Lesion[]>([])
   const [profile, setProfileState] = useState<UserProfile>(emptyUserProfile())
   const [loading, setLoading] = useState(true)
   const [storageError, setStorageError] = useState<string | null>(null)
@@ -47,6 +56,7 @@ export function SkinTrackProvider({ children }: { children: ReactNode }) {
       ])
       setRecords(r)
       setProfileState(p)
+      setLesionsState(repository.getLesions())
     } catch (e) {
       setStorageError((e as Error)?.message ?? "Failed to load data.")
     } finally {
@@ -81,6 +91,14 @@ export function SkinTrackProvider({ children }: { children: ReactNode }) {
     [repository],
   )
 
+  const upsertLesion = useCallback(
+    (lesion: Lesion) => {
+      repository.upsertLesion(lesion)
+      setLesionsState(repository.getLesions())
+    },
+    [repository],
+  )
+
   const replaceRecords = useCallback(
     async (next: SkinTrackRecord[]) => {
       const result = await repository.replaceAllRecords(next)
@@ -103,6 +121,7 @@ export function SkinTrackProvider({ children }: { children: ReactNode }) {
       }
       setRecords(result.records)
       setProfileState(result.profile)
+      setLesionsState(repository.getLesions())
       return { ok: true as const }
     },
     [repository, records],
@@ -111,6 +130,7 @@ export function SkinTrackProvider({ children }: { children: ReactNode }) {
   const value = useMemo<SkinTrackContextValue>(
     () => ({
       records,
+      lesions,
       profile,
       loading,
       storageError,
@@ -118,12 +138,14 @@ export function SkinTrackProvider({ children }: { children: ReactNode }) {
       refresh,
       saveRecord,
       setProfile,
+      upsertLesion,
       replaceRecords,
       importBundle,
       repository,
     }),
     [
       records,
+      lesions,
       profile,
       loading,
       storageError,
@@ -131,6 +153,7 @@ export function SkinTrackProvider({ children }: { children: ReactNode }) {
       refresh,
       saveRecord,
       setProfile,
+      upsertLesion,
       replaceRecords,
       importBundle,
       repository,

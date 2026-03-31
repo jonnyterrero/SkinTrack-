@@ -4,6 +4,7 @@ import type { DailyMedCheckoff, MedicationCatalogItem } from "@/lib/domain/medic
 import { defaultMedicationCatalog } from "@/lib/domain/medications"
 import {
   emptyUserProfile,
+  type Lesion,
   type NewSkinTrackRecordInput,
   type SkinTrackExportV1,
   type SkinTrackRecord,
@@ -34,6 +35,9 @@ export function createSupabaseSkinTrackRepository(): SkinTrackRepository {
     setMedicationCatalog: (_items: MedicationCatalogItem[]) => notConfigured(),
     getMedDailyByDate: (): Record<string, DailyMedCheckoff> => ({}),
     setMedDailyByDate: (_map: Record<string, DailyMedCheckoff>) => notConfigured(),
+    getLesions: (): Lesion[] => [],
+    setLesions: () => notConfigured(),
+    upsertLesion: () => notConfigured(),
     buildExport: (records: SkinTrackRecord[], profile: UserProfile): SkinTrackExportV1 =>
       buildExportPayload(records, profile),
     importBundle: async (raw: unknown, _mergeWithExisting: SkinTrackRecord[]): Promise<ImportBundleResult> => {

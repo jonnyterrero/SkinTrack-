@@ -1,4 +1,4 @@
-import type { PersistedRow, SkinTrackRecord, SymptomTrackRecord } from "@/lib/types"
+import type { PersistedRow, SkinEventRecord, SkinTrackRecord, SymptomTrackRecord } from "@/lib/types"
 import { blobToDataUrl, dataUrlToBlob, generateImageRef } from "@/lib/data/blob-utils"
 import { getImageBlob, putImageBlob } from "@/lib/data/idb"
 
@@ -19,6 +19,11 @@ export async function migrateLegacyRecords(rows: unknown[]): Promise<{ rows: Per
 
     if (row.type === "symptom") {
       out.push(row as unknown as SymptomTrackRecord)
+      continue
+    }
+
+    if (row.type === "skin_event") {
+      out.push(row as unknown as SkinEventRecord)
       continue
     }
 
@@ -60,6 +65,10 @@ export async function hydrateRecordsForUi(rows: PersistedRow[]): Promise<SkinTra
   const result: SkinTrackRecord[] = []
   for (const row of rows) {
     if (row.type === "symptom") {
+      result.push(row)
+      continue
+    }
+    if (row.type === "skin_event") {
       result.push(row)
       continue
     }

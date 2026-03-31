@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Download, TrendingUp, TrendingDown, Minus } from "lucide-react"
 import type { SkinTrackRecord, SymptomTrackRecord } from "@/lib/types"
-import { isSymptomRecord } from "@/lib/types"
+import { isSkinEventRecord, isSymptomRecord } from "@/lib/types"
 import { formatCorrelation, pearsonCorrelation } from "@/lib/analysis/correlation"
 
 type Trend = "increasing" | "decreasing" | "stable"
@@ -31,6 +31,11 @@ export default function DataAnalysis({ records }: Props) {
     return [...s].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
   }, [records])
 
+  const skinEventRecords = useMemo(() => {
+    const s = records.filter(isSkinEventRecord)
+    return [...s].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+  }, [records])
+
   const itch = symptomRecords.map((r) => r.itch)
   const pain = symptomRecords.map((r) => r.pain)
   const stress = symptomRecords.map((r) => r.stress)
@@ -43,6 +48,19 @@ export default function DataAnalysis({ records }: Props) {
       stressSleep: pearsonCorrelation(stress, sleep),
     }
   }, [itch, pain, stress, sleep])
+
+  const seItch = skinEventRecords.map((r) => r.itch)
+  const seStress = skinEventRecords.map((r) => r.stress)
+  const seSleepH = skinEventRecords.map((r) => r.sleepHours)
+  const sePain = skinEventRecords.map((r) => r.pain)
+
+  const skinEventCorrelations = useMemo(() => {
+    return {
+      itchStress: pearsonCorrelation(seItch, seStress),
+      painSleep: pearsonCorrelation(sePain, seSleepH),
+      stressSleep: pearsonCorrelation(seStress, seSleepH),
+    }
+  }, [seItch, seStress, seSleepH, sePain])
 
   const downloadData = () => {
     const dataStr = JSON.stringify(records, null, 2)
@@ -101,7 +119,7 @@ export default function DataAnalysis({ records }: Props) {
           <CardTitle>Overview Statistics</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             <div className="rounded-lg bg-blue-50 p-4 text-center dark:bg-blue-950/30">
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{records.length}</div>
               <div className="text-sm text-gray-600 dark:text-gray-400">Total Records</div>
@@ -116,25 +134,58 @@ export default function DataAnalysis({ records }: Props) {
 
             <div className="rounded-lg bg-cyan-50 p-4 text-center dark:bg-cyan-950/40">
               <div className="text-2xl font-bold text-cyan-700 dark:text-cyan-400">{symptomRecords.length}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Symptom Records</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Legacy symptom logs</div>
+            </div>
+
+            <div className="rounded-lg bg-violet-50 p-4 text-center dark:bg-violet-950/30">
+              <div className="text-2xl font-bold text-violet-700 dark:text-violet-300">{skinEventRecords.length}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Skin events (v1)</div>
             </div>
 
             <div className="rounded-lg bg-orange-50 p-4 text-center dark:bg-orange-950/30">
               <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                 {new Set(symptomRecords.map((r) => r.condition)).size}
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Conditions</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Conditions (legacy)</div>
             </div>
           </div>
         </CardContent>
       </Card>
 
+      {skinEventRecords.length > 2 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>V1 skin events — correlation (Pearson r)</CardTitle>
+            <CardDescription>
+              Association only (not causation). Uses structured skin events only; legacy symptom logs excluded. Needs at
+              least 3 entries.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-lg border border-slate-200/80 p-4 dark:border-slate-700">
+                <div className="text-sm text-muted-foreground">Itch × Stress</div>
+                <div className="text-2xl font-semibold">{formatCorrelation(skinEventCorrelations.itchStress)}</div>
+              </div>
+              <div className="rounded-lg border border-slate-200/80 p-4 dark:border-slate-700">
+                <div className="text-sm text-muted-foreground">Pain × Sleep hours</div>
+                <div className="text-2xl font-semibold">{formatCorrelation(skinEventCorrelations.painSleep)}</div>
+              </div>
+              <div className="rounded-lg border border-slate-200/80 p-4 dark:border-slate-700">
+                <div className="text-sm text-muted-foreground">Stress × Sleep hours</div>
+                <div className="text-2xl font-semibold">{formatCorrelation(skinEventCorrelations.stressSleep)}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {symptomRecords.length > 2 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Correlation (Pearson r)</CardTitle>
+            <CardTitle>Legacy symptom logs — correlation (Pearson r)</CardTitle>
             <CardDescription>
-              Based on symptom logs ordered by time. Values from -1 to 1; needs at least 3 entries.
+              Based on legacy symptom entries ordered by time. Values from -1 to 1; needs at least 3 entries.
             </CardDescription>
           </CardHeader>
           <CardContent>

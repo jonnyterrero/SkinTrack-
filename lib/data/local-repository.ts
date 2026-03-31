@@ -6,12 +6,15 @@ import { dataUrlToBlob, generateImageRef } from "@/lib/data/blob-utils"
 import { getImageBlob, putImageBlob } from "@/lib/data/idb"
 import { hydrateRecordsForUi, migrateLegacyRecords } from "@/lib/data/migrate"
 import type { SkinTrackRepository, SaveRecordResult, ImportBundleResult, PersistResult } from "@/lib/data/repository"
+import { METRICS_SCHEMA_VERSION } from "@/lib/domain/skin-event-metrics"
 import {
   emptyUserProfile,
   EXPORT_SCHEMA_VERSION,
+  type Lesion,
   type NewSkinTrackRecordInput,
   type PersistedImageRow,
   type PersistedRow,
+  type SkinEventRecord,
   type SkinTrackExportV1,
   type SkinTrackRecord,
   type SymptomTrackRecord,
@@ -69,7 +72,7 @@ async function ensureImageBlobInIdb(record: SkinTrackRecord): Promise<string> {
 }
 
 function toPersistedRow(record: SkinTrackRecord, imageRef: string | undefined): PersistedRow {
-  if (record.type === "symptom") {
+  if (record.type === "symptom" || record.type === "skin_event") {
     return record
   }
   return {
@@ -85,7 +88,7 @@ function toPersistedRow(record: SkinTrackRecord, imageRef: string | undefined): 
 async function recordsToPersistedRows(records: SkinTrackRecord[]): Promise<PersistedRow[]> {
   const out: PersistedRow[] = []
   for (const r of records) {
-    if (r.type === "symptom") {
+    if (r.type === "symptom" || r.type === "skin_event") {
       out.push(r)
       continue
     }
@@ -111,6 +114,19 @@ export function createLocalSkinTrackRepository(): SkinTrackRepository {
 
       if (input.type === "symptom") {
         const record: SymptomTrackRecord = { ...input, id, timestamp }
+        const next: PersistedRow[] = [record, ...persisted]
+        const pr = persistRowsToLocalStorage(next)
+        if (!pr.ok) return pr
+        return { ok: true, record }
+      }
+
+      if (input.type === "skin_event") {
+        const record: SkinEventRecord = {
+          ...input,
+          id,
+          timestamp,
+          metricsSchemaVersion: METRICS_SCHEMA_VERSION,
+        }
         const next: PersistedRow[] = [record, ...persisted]
         const pr = persistRowsToLocalStorage(next)
         if (!pr.ok) return pr
@@ -228,10 +244,39 @@ export function createLocalSkinTrackRepository(): SkinTrackRepository {
       }
     },
 
+    getLesions(): Lesion[] {
+      if (typeof window === "undefined") return []
+      const raw = localStorage.getItem(STORAGE_KEYS.lesions)
+      if (!raw) return []
+      try {
+        const parsed = JSON.parse(raw) as unknown
+        return Array.isArray(parsed) ? (parsed as Lesion[]) : []
+      } catch {
+        return []
+      }
+    },
+
+    setLesions(lesions: Lesion[]): void {
+      if (typeof window === "undefined") return
+      try {
+        localStorage.setItem(STORAGE_KEYS.lesions, JSON.stringify(lesions))
+      } catch {
+        /* ignore */
+      }
+    },
+
+    upsertLesion(lesion: Lesion): void {
+      const list = repo.getLesions()
+      const idx = list.findIndex((l) => l.id === lesion.id)
+      const next = idx >= 0 ? list.map((l) => (l.id === lesion.id ? lesion : l)) : [lesion, ...list]
+      repo.setLesions(next)
+    },
+
     buildExport(records: SkinTrackRecord[], profile: UserProfile): SkinTrackExportV1 {
       return buildExportPayload(records, profile, {
         medicationCatalog: repo.getMedicationCatalog(),
         medDailyByDate: repo.getMedDailyByDate(),
+        lesions: repo.getLesions(),
       })
     },
 
@@ -260,6 +305,14 @@ export function createLocalSkinTrackRepository(): SkinTrackRepository {
       }
       if (parsed.bundle.medDailyByDate) {
         repo.setMedDailyByDate(parsed.bundle.medDailyByDate)
+      }
+      if (parsed.bundle.lesions?.length) {
+        const existing = repo.getLesions()
+        const byId = new Map(existing.map((l) => [l.id, l]))
+        for (const l of parsed.bundle.lesions) {
+          byId.set(l.id, l)
+        }
+        repo.setLesions([...byId.values()])
       }
       const hydrated = await repo.loadRecords()
       return { ok: true, records: hydrated, profile: parsed.bundle.profile }

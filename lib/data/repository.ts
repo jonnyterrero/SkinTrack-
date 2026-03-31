@@ -1,5 +1,5 @@
 import type { DailyMedCheckoff, MedicationCatalogItem } from "@/lib/domain/medications"
-import type { NewSkinTrackRecordInput, SkinTrackExportV1, SkinTrackRecord, UserProfile } from "@/lib/types"
+import type { Lesion, NewSkinTrackRecordInput, SkinTrackExportV1, SkinTrackRecord, UserProfile } from "@/lib/types"
 
 export type SaveRecordResult =
   | { ok: true; record: SkinTrackRecord }
@@ -27,6 +27,9 @@ export interface SkinTrackRepository {
   setMedicationCatalog(items: MedicationCatalogItem[]): void
   getMedDailyByDate(): Record<string, DailyMedCheckoff>
   setMedDailyByDate(map: Record<string, DailyMedCheckoff>): void
+  getLesions(): Lesion[]
+  setLesions(lesions: Lesion[]): void
+  upsertLesion(lesion: Lesion): void
   buildExport(records: SkinTrackRecord[], profile: UserProfile): SkinTrackExportV1
   importBundle(raw: unknown, mergeWithExisting: SkinTrackRecord[]): Promise<ImportBundleResult>
   getWebhookUrl(): string

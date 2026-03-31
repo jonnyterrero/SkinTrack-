@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { dataUrlToBlob } from "@/lib/data/blob-utils"
 import type { SkinTrackExportV1 } from "@/lib/types"
-import { isImageRecord, isSymptomRecord } from "@/lib/types"
+import { isImageRecord, isSkinEventRecord, isSymptomRecord } from "@/lib/types"
 
 export type SyncResult = { ok: true } | { ok: false; error: string }
 
@@ -9,8 +9,9 @@ export type SyncResult = { ok: true } | { ok: false; error: string }
  * ## Cloud sync strategy (current)
  *
  * - **Direction:** Push-only. There is no pull/restore from Supabase into the local app yet.
- * - **Mechanism:** Full replace per user: delete all `records` for `auth.uid()`, then insert rows
- *   built from the local export bundle (`syncLocalBundleToSupabase`).
+ * - **Mechanism:** Full replace per user: delete `skin_events`, `lesions`, then `records` for
+ *   `auth.uid()`, then re-insert from the export bundle. Lesions and skin events map to
+ *   `public.lesions` / `public.skin_events`; symptom and image rows stay in `public.records`.
  * - **Local vs server IDs:** The app uses **numeric** `SkinTrackRecord.id` (e.g. `Date.now()`)
  *   in IndexedDB/localStorage. Each Supabase `public.records` row gets a **new UUID** primary key.
  *   The original client id remains inside `payload` (`payload.symptom` / `payload.image`), which
@@ -51,12 +52,67 @@ export async function syncLocalBundleToSupabase(
     return { ok: false, error: profileErr.message }
   }
 
+  const { error: delSkinErr } = await supabase.from("skin_events").delete().eq("user_id", user.id)
+  if (delSkinErr) {
+    return { ok: false, error: delSkinErr.message }
+  }
+
+  const { error: delLesionsErr } = await supabase.from("lesions").delete().eq("user_id", user.id)
+  if (delLesionsErr) {
+    return { ok: false, error: delLesionsErr.message }
+  }
+
   const { error: delErr } = await supabase.from("records").delete().eq("user_id", user.id)
   if (delErr) {
     return { ok: false, error: delErr.message }
   }
 
+  const bundleLesions = bundle.lesions ?? []
+  const lesionById = new Map(bundleLesions.map((l) => [l.id, l]))
   for (const rec of bundle.records) {
+    if (isSkinEventRecord(rec) && !lesionById.has(rec.lesionId)) {
+      lesionById.set(rec.lesionId, {
+        id: rec.lesionId,
+        label: "Unlisted lesion",
+        createdAt: rec.timestamp,
+      })
+    }
+  }
+
+  for (const l of lesionById.values()) {
+    const { error: leErr } = await supabase.from("lesions").insert({
+      id: l.id,
+      user_id: user.id,
+      label: l.label,
+      created_at: l.createdAt,
+      archived_at: l.archived ? new Date().toISOString() : null,
+    })
+    if (leErr) return { ok: false, error: leErr.message }
+  }
+
+  for (const rec of bundle.records) {
+    if (isSkinEventRecord(rec)) {
+      const { error } = await supabase.from("skin_events").insert({
+        user_id: user.id,
+        lesion_id: rec.lesionId,
+        client_numeric_id: rec.id,
+        ts: rec.timestamp,
+        severity_0_4: rec.severity04,
+        location_id: rec.locationId,
+        itch: rec.itch,
+        pain: rec.pain,
+        burning: rec.burning,
+        dryness: rec.dryness,
+        stress: rec.stress,
+        sleep_hours: rec.sleepHours,
+        sleep_quality: rec.sleepQuality,
+        metrics_schema_version: rec.metricsSchemaVersion,
+        notes: rec.notes ?? null,
+      })
+      if (error) return { ok: false, error: error.message }
+      continue
+    }
+
     if (isSymptomRecord(rec)) {
       const { error } = await supabase.from("records").insert({
         user_id: user.id,

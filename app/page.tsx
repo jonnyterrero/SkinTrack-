@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import ImageCapture from "@/features/images/image-capture"
 import ImageAnalysis from "@/features/images/image-analysis"
 import SymptomTracker from "@/features/symptom/symptom-tracker"
+import SkinEventLog from "@/features/skin-event/skin-event-log"
 import DataAnalysis from "@/features/data/data-analysis"
 import ImageGallery from "@/components/image-gallery"
 import ProfileManager from "@/features/profile/profile-manager"
@@ -35,6 +36,7 @@ const navTriggerClass =
 
 export default function HomePage() {
   const { records, loading, storageError, clearStorageError, saveRecord } = useSkinTrack()
+  const [showLegacySymptomLog, setShowLegacySymptomLog] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState<unknown>(null)
   const [isInstalled, setIsInstalled] = useState(false)
   const [showUpdateNotification, setShowUpdateNotification] = useState(false)
@@ -289,7 +291,21 @@ export default function HomePage() {
 
           <TabsContent value="insights" className="mt-0 space-y-6 outline-none focus-visible:outline-none">
             <div className="glass-card rounded-2xl p-6">
-              <SymptomTracker onRecordSaved={handleRecordSaved} />
+              <SkinEventLog />
+            </div>
+            <div className="rounded-xl border border-dashed border-slate-300/80 p-4 dark:border-slate-600">
+              <button
+                type="button"
+                className="w-full text-left text-sm font-medium text-muted-foreground hover:text-foreground"
+                onClick={() => setShowLegacySymptomLog((v) => !v)}
+              >
+                {showLegacySymptomLog ? "▼" : "▶"} Previous log format (legacy)
+              </button>
+              {showLegacySymptomLog ? (
+                <div className="mt-4">
+                  <SymptomTracker onRecordSaved={handleRecordSaved} />
+                </div>
+              ) : null}
             </div>
             <div className="glass-card rounded-2xl p-6">
               <DataAnalysis records={records} />

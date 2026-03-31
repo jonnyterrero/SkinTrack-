@@ -5,4 +5,5 @@ export const STORAGE_KEYS = {
   apiKey: "skintrack-api-key",
   medicationCatalog: "skintrack-medication-catalog",
   medDailyByDate: "skintrack-med-daily-by-date",
+  lesions: "skintrack-lesions",
 } as const

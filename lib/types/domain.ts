@@ -1,7 +1,8 @@
 import type { DailyMedCheckoff, MedicationCatalogItem } from "@/lib/domain/medications"
+import { METRICS_SCHEMA_VERSION } from "@/lib/domain/skin-event-metrics"
 
 /** Canonical export bundle version (integer). Bump when bundle shape changes. */
-export const EXPORT_SCHEMA_VERSION = 2 as const
+export const EXPORT_SCHEMA_VERSION = 3 as const
 
 export type UserProfile = {
   name: string
@@ -44,8 +45,34 @@ export type SymptomTrackRecord = {
   notes: string
   bodyArea?: string
   severity?: SeverityLevel
-  /** Optional links to catalog ids when user picks from catalog */
   medicationIds?: string[]
+}
+
+/** Local lesion registry (client-generated ids until hybrid sync). */
+export type Lesion = {
+  id: string
+  label: string
+  createdAt: string
+  archived?: boolean
+}
+
+/** v1 locked metrics — longitudinal skin event log row. */
+export type SkinEventRecord = {
+  id: number
+  timestamp: string
+  type: "skin_event"
+  lesionId: string
+  severity04: 0 | 1 | 2 | 3 | 4
+  locationId: string
+  itch: number
+  pain: number
+  burning: number
+  dryness: number
+  stress: number
+  sleepHours: number
+  sleepQuality: 1 | 2 | 3 | 4 | 5
+  metricsSchemaVersion: typeof METRICS_SCHEMA_VERSION
+  notes?: string
 }
 
 /** Extra fields stored with image blobs (EXIF-light, location context). */
@@ -54,7 +81,6 @@ export type ImageMetadata = {
   bodyArea?: string
   source?: "camera" | "upload"
   note?: string
-  /** Original file dimensions if known */
   width?: number
   height?: number
 }
@@ -65,41 +91,41 @@ export type ImageTrackRecord = {
   timestamp: string
   type: "image"
   filename: string
-  /** Stable id for IndexedDB blob */
   imageRef?: string
-  /** Populated in memory after hydration (data URL) */
   image?: string
   metadata?: ImageMetadata
 }
 
-export type SkinTrackRecord = SymptomTrackRecord | ImageTrackRecord
+export type SkinTrackRecord = SymptomTrackRecord | ImageTrackRecord | SkinEventRecord
 
 /** Input when saving a new record (server assigns id + timestamp). */
 export type NewSymptomRecordInput = Omit<SymptomTrackRecord, "id" | "timestamp">
 export type NewImageRecordInput = {
   type: "image"
   filename: string
-  /** data URL from file reader */
   image: string
   metadata?: ImageMetadata
 }
 
-export type NewSkinTrackRecordInput = NewSymptomRecordInput | NewImageRecordInput
+export type NewSkinEventInput = Omit<SkinEventRecord, "id" | "timestamp" | "metricsSchemaVersion">
+
+export type NewSkinTrackRecordInput = NewSymptomRecordInput | NewImageRecordInput | NewSkinEventInput
 
 /** Serialized row stored in localStorage (no inline image bytes). */
 export type StoredSkinTrackRecord =
   | SymptomTrackRecord
+  | SkinEventRecord
   | Omit<ImageTrackRecord, "image"> & { imageRef: string }
 
-/** Export file shape (v2). v1 importers are upgraded to this shape. */
+/** Export file shape (v3 adds lesions registry). */
 export type SkinTrackExportV1 = {
   version: typeof EXPORT_SCHEMA_VERSION
   exportDate: string
   records: SkinTrackRecord[]
   profile: UserProfile
   medicationCatalog?: MedicationCatalogItem[]
-  /** ISO date (YYYY-MM-DD) -> checkoff */
   medDailyByDate?: Record<string, DailyMedCheckoff>
+  lesions?: Lesion[]
 }
 
 export function isImageRecord(r: SkinTrackRecord): r is ImageTrackRecord {
@@ -108,6 +134,10 @@ export function isImageRecord(r: SkinTrackRecord): r is ImageTrackRecord {
 
 export function isSymptomRecord(r: SkinTrackRecord): r is SymptomTrackRecord {
   return r.type === "symptom"
+}
+
+export function isSkinEventRecord(r: SkinTrackRecord): r is SkinEventRecord {
+  return r.type === "skin_event"
 }
 
 /** Row stored in localStorage for images (binary in IndexedDB). */
@@ -120,4 +150,4 @@ export type PersistedImageRow = {
   metadata?: ImageMetadata
 }
 
-export type PersistedRow = SymptomTrackRecord | PersistedImageRow
+export type PersistedRow = SymptomTrackRecord | PersistedImageRow | SkinEventRecord

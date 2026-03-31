@@ -1,6 +1,7 @@
 import {
   EXPORT_SCHEMA_VERSION,
   emptyUserProfile,
+  type Lesion,
   type SkinTrackExportV1,
   type SkinTrackRecord,
   type UserProfile,
@@ -15,7 +16,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v)
 }
 
-const LEGACY_VERSIONS = new Set([EXPORT_SCHEMA_VERSION, 1, "1", "1.0", "2", 2])
+const LEGACY_VERSIONS = new Set([EXPORT_SCHEMA_VERSION, 1, "1", "1.0", "2", 2, "3", 3])
 
 /**
  * Accepts v1/v2 export objects or legacy `{ version: "1.0", records, profile }`.
@@ -47,6 +48,8 @@ export function parseSkinTrackImport(raw: unknown): ParseImportResult {
     ? (raw.medDailyByDate as Record<string, DailyMedCheckoff>)
     : undefined
 
+  const lesions = Array.isArray(raw.lesions) ? (raw.lesions as Lesion[]) : undefined
+
   const bundle: SkinTrackExportV1 = {
     version: EXPORT_SCHEMA_VERSION,
     exportDate: typeof raw.exportDate === "string" ? raw.exportDate : new Date().toISOString(),
@@ -54,6 +57,7 @@ export function parseSkinTrackImport(raw: unknown): ParseImportResult {
     profile,
     medicationCatalog,
     medDailyByDate,
+    ...(lesions ? { lesions } : {}),
   }
 
   return { ok: true, bundle }
@@ -65,6 +69,7 @@ export function buildExportPayload(
   extras?: {
     medicationCatalog?: MedicationCatalogItem[]
     medDailyByDate?: Record<string, DailyMedCheckoff>
+    lesions?: Lesion[]
   },
 ): SkinTrackExportV1 {
   return {
@@ -74,5 +79,6 @@ export function buildExportPayload(
     profile,
     ...(extras?.medicationCatalog ? { medicationCatalog: extras.medicationCatalog } : {}),
     ...(extras?.medDailyByDate ? { medDailyByDate: extras.medDailyByDate } : {}),
+    ...(extras?.lesions && extras.lesions.length > 0 ? { lesions: extras.lesions } : {}),
   }
 }
