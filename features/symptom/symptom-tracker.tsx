@@ -10,25 +10,21 @@ import { Slider } from "@/components/ui/slider"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Save } from "lucide-react"
+import { BODY_AREA_DEFINITIONS } from "@/lib/domain/body-areas"
+import { SKIN_CONDITIONS } from "@/lib/domain/conditions"
+import { SLEEP_HOURS } from "@/lib/domain/scales"
 import type { NewSymptomRecordInput } from "@/lib/types"
-
-const CONDITIONS = [
-  "eczema",
-  "psoriasis",
-  "guttate psoriasis",
-  "keratosis pilaris",
-  "cystic/hormonal acne",
-  "melanoma",
-  "vitiligo",
-  "contact dermatitis",
-  "cold sores",
-]
+import type { SeverityLevel } from "@/lib/types"
+import { useSkinTrack } from "@/components/skintrack-provider"
 
 type Props = {
   onRecordSaved: (input: NewSymptomRecordInput) => void | Promise<void>
 }
 
 export default function SymptomTracker({ onRecordSaved }: Props) {
+  const { repository } = useSkinTrack()
+  const catalog = repository.getMedicationCatalog().filter((m) => m.name.trim().length > 0)
+
   const [formData, setFormData] = useState({
     lesionLabel: "",
     condition: "",
@@ -41,10 +37,27 @@ export default function SymptomTracker({ onRecordSaved }: Props) {
     medications: "",
     adherence: false,
     notes: "",
+    bodyArea: "",
+    severity: "" as "" | SeverityLevel,
+    selectedMedIds: [] as string[],
   })
+
+  const toggleMed = (id: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      selectedMedIds: prev.selectedMedIds.includes(id)
+        ? prev.selectedMedIds.filter((x) => x !== id)
+        : [...prev.selectedMedIds, id],
+    }))
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+
+    const medNames = catalog
+      .filter((m) => formData.selectedMedIds.includes(m.id))
+      .map((m) => `${m.name}${m.dose ? ` (${m.dose})` : ""}`)
+    const medicationsLine = [formData.medications.trim(), medNames.join(", ")].filter(Boolean).join(" · ")
 
     const input: NewSymptomRecordInput = {
       lesionLabel: formData.lesionLabel,
@@ -55,10 +68,13 @@ export default function SymptomTracker({ onRecordSaved }: Props) {
       stress: formData.stress[0],
       triggers: formData.triggers,
       newProducts: formData.newProducts,
-      medications: formData.medications,
+      medications: medicationsLine,
       adherence: formData.adherence,
       notes: formData.notes,
       type: "symptom",
+      ...(formData.bodyArea ? { bodyArea: formData.bodyArea } : {}),
+      ...(formData.severity ? { severity: formData.severity } : {}),
+      ...(formData.selectedMedIds.length ? { medicationIds: formData.selectedMedIds } : {}),
     }
 
     void onRecordSaved(input)
@@ -75,6 +91,9 @@ export default function SymptomTracker({ onRecordSaved }: Props) {
       medications: "",
       adherence: false,
       notes: "",
+      bodyArea: "",
+      severity: "",
+      selectedMedIds: [],
     })
   }
 
@@ -105,11 +124,47 @@ export default function SymptomTracker({ onRecordSaved }: Props) {
                   <SelectValue placeholder="Select condition" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CONDITIONS.map((condition) => (
+                  {SKIN_CONDITIONS.map((condition) => (
                     <SelectItem key={condition} value={condition}>
                       {condition}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="bodyArea">Body area</Label>
+              <Select value={formData.bodyArea || "__none__"} onValueChange={(v) => setFormData({ ...formData, bodyArea: v === "__none__" ? "" : v })}>
+                <SelectTrigger id="bodyArea">
+                  <SelectValue placeholder="Select area (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Not specified</SelectItem>
+                  {BODY_AREA_DEFINITIONS.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="severity">Severity (for map)</Label>
+              <Select
+                value={formData.severity || "__none__"}
+                onValueChange={(v) => setFormData({ ...formData, severity: v === "__none__" ? "" : (v as SeverityLevel) })}
+              >
+                <SelectTrigger id="severity">
+                  <SelectValue placeholder="Optional" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Not specified</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -146,9 +201,9 @@ export default function SymptomTracker({ onRecordSaved }: Props) {
                 <Input
                   id="sleep"
                   type="number"
-                  min={0}
-                  max={24}
-                  step={0.5}
+                  min={SLEEP_HOURS.min}
+                  max={SLEEP_HOURS.max}
+                  step={SLEEP_HOURS.step}
                   value={formData.sleep}
                   onChange={(e) => setFormData({ ...formData, sleep: Number.parseFloat(e.target.value) })}
                 />
@@ -189,11 +244,32 @@ export default function SymptomTracker({ onRecordSaved }: Props) {
             </div>
           </div>
 
+          {catalog.length > 0 ? (
+            <div className="space-y-2">
+              <Label>From your medication catalog</Label>
+              <div className="flex flex-wrap gap-3 rounded-lg border border-slate-200/80 p-3 dark:border-slate-700">
+                {catalog.map((m) => (
+                  <div key={m.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`med-${m.id}`}
+                      checked={formData.selectedMedIds.includes(m.id)}
+                      onCheckedChange={() => toggleMed(m.id)}
+                    />
+                    <Label htmlFor={`med-${m.id}`} className="cursor-pointer text-sm font-normal">
+                      {m.name}
+                      {m.dose ? <span className="text-muted-foreground"> ({m.dose})</span> : null}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="space-y-2">
-            <Label htmlFor="medications">Medications Taken</Label>
+            <Label htmlFor="medications">Other medications / notes</Label>
             <Input
               id="medications"
-              placeholder="triamcinolone, antihistamine"
+              placeholder="Anything not in the catalog"
               value={formData.medications}
               onChange={(e) => setFormData({ ...formData, medications: e.target.value })}
             />

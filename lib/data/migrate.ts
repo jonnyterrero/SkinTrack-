@@ -78,6 +78,7 @@ export async function hydrateRecordsForUi(rows: PersistedRow[]): Promise<SkinTra
         filename: row.filename,
         imageRef: ref,
         image: dataUrl,
+        ...(row.metadata ? { metadata: row.metadata } : {}),
       })
     } else {
       result.push({
@@ -86,6 +87,7 @@ export async function hydrateRecordsForUi(rows: PersistedRow[]): Promise<SkinTra
         type: "image",
         filename: row.filename,
         imageRef: ref,
+        ...(row.metadata ? { metadata: row.metadata } : {}),
       })
     }
   }

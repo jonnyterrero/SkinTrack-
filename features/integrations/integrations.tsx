@@ -8,25 +8,45 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useSkinTrack } from "@/components/skintrack-provider"
 import { EXPORT_SCHEMA_VERSION } from "@/lib/types"
+import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/browser-client"
+import { syncLocalBundleToSupabase } from "@/lib/data/sync"
+import { toast } from "sonner"
 
 export default function Integrations() {
-  const { records, profile, repository, importBundle } = useSkinTrack()
+  const { records, profile, repository, importBundle, refresh } = useSkinTrack()
   const [apiKey, setApiKey] = useState("")
   const [importData, setImportData] = useState("")
   const [exportedData, setExportedData] = useState("")
   const [webhookUrl, setWebhookUrl] = useState("")
-  const [showSuccess, setShowSuccess] = useState(false)
+  const [syncMessage, setSyncMessage] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [authEmail, setAuthEmail] = useState("")
+  const [userEmail, setUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
     setApiKey(repository.getApiKey())
     setWebhookUrl(repository.getWebhookUrl())
   }, [repository])
 
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) return
+    void supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email ?? null)
+    })
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserEmail(session?.user?.email ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
   const generateApiKey = () => {
     const key = "sk_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
     setApiKey(key)
     repository.setApiKey(key)
-    showSuccessMessage()
+    toast.success("API key generated")
   }
 
   const handleExport = () => {
@@ -41,7 +61,7 @@ export default function Integrations() {
     a.download = `skintrack-export-${new Date().toISOString().split("T")[0]}.json`
     a.click()
     URL.revokeObjectURL(url)
-    showSuccessMessage()
+    toast.success("Export downloaded")
   }
 
   const handleImport = async () => {
@@ -49,51 +69,130 @@ export default function Integrations() {
       const data = JSON.parse(importData) as unknown
       const result = await importBundle(data)
       if (!result.ok) {
-        alert(result.error)
+        toast.error(result.error)
         return
       }
       setImportData("")
-      showSuccessMessage()
+      await refresh()
+      toast.success("Import complete")
     } catch {
-      alert("Error parsing JSON. Please check the format and try again.")
+      toast.error("Invalid JSON. Check the format and try again.")
     }
+  }
+
+  const handleSyncToCloud = async () => {
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) {
+      setSyncMessage("Supabase URL/key not configured.")
+      return
+    }
+    setSyncing(true)
+    setSyncMessage(null)
+    const bundle = repository.buildExport(records, profile)
+    const result = await syncLocalBundleToSupabase(supabase, bundle)
+    setSyncing(false)
+    if (result.ok) {
+      toast.success("Synced to cloud")
+    } else {
+      setSyncMessage(result.error)
+      toast.error(result.error)
+    }
+  }
+
+  const sendMagicLink = async () => {
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase || !authEmail.trim()) return
+    const { error } = await supabase.auth.signInWithOtp({
+      email: authEmail.trim(),
+      options: { emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined },
+    })
+    if (error) {
+      setSyncMessage(error.message)
+      return
+    }
+    setSyncMessage("Check your email for the login link.")
+  }
+
+  const signOut = async () => {
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) return
+    await supabase.auth.signOut()
+    setUserEmail(null)
   }
 
   const copyApiEndpoint = () => {
     const endpoint = `${window.location.origin}/api/skintrack`
     void navigator.clipboard.writeText(endpoint)
-    showSuccessMessage()
+    toast.success("Endpoint copied")
   }
 
   const saveWebhook = () => {
     repository.setWebhookUrl(webhookUrl)
-    showSuccessMessage()
-  }
-
-  const showSuccessMessage = () => {
-    setShowSuccess(true)
-    setTimeout(() => setShowSuccess(false), 2000)
+    toast.success("Webhook URL saved (not sent automatically)")
   }
 
   return (
     <div className="space-y-6">
-      {showSuccess && (
-        <div className="fixed top-4 right-4 z-50 glass-card rounded-xl p-4 border-green-200/30 bg-gradient-to-r from-green-500/20 to-emerald-500/20 shadow-2xl animate-in slide-in-from-top">
-          <div className="text-green-700 text-sm font-medium flex items-center gap-2">
-            <span className="text-green-500">✅</span>
-            Success!
-          </div>
-        </div>
-      )}
-
       <div>
         <h2 className="mb-2 bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-3xl font-bold text-transparent">
           Data &amp; integrations
         </h2>
-        <p className="text-foreground/70">Export, import, and optional API hooks. Primary storage stays on your device.</p>
+        <p className="text-foreground/70">Export, import, optional cloud sync, and API hooks. Primary storage stays on your device.</p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      {isSupabaseConfigured() ? (
+        <Card className="glass-card border-slate-200/80 dark:border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-lg">Supabase (optional)</CardTitle>
+            <CardDescription>
+              Sign in with a one-time email link, then push your local export bundle to Postgres + Storage. Requires
+              `skintrack-images` bucket and RLS policies in your project.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {userEmail ? (
+              <p className="text-sm text-muted-foreground">
+                Signed in as <strong>{userEmail}</strong>
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  className="glass-input"
+                />
+                <Button type="button" variant="secondary" onClick={() => void sendMagicLink()}>
+                  Send magic link
+                </Button>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" onClick={() => void handleSyncToCloud()} disabled={syncing || !userEmail}>
+                {syncing ? "Syncing…" : "Sync local data to cloud"}
+              </Button>
+              {userEmail ? (
+                <Button type="button" variant="outline" onClick={() => void signOut()}>
+                  Sign out
+                </Button>
+              ) : null}
+            </div>
+            {syncMessage ? <p className="text-sm text-muted-foreground">{syncMessage}</p> : null}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-dashed border-slate-300 dark:border-slate-600">
+          <CardHeader>
+            <CardTitle className="text-lg">Supabase</CardTitle>
+            <CardDescription>
+              Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your environment to enable cloud sync.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+
+      <div className="grid gap-6 md:grid-cols-2">
         <Card className="glass-card border-slate-200/80 dark:border-slate-700">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -130,9 +229,9 @@ export default function Integrations() {
                 </Button>
               </div>
             </div>
-            <div className="text-xs text-foreground/60 space-y-1">
+            <div className="space-y-1 text-xs text-foreground/60">
               <p>GET returns integration metadata. POST echoes payloads only—no cloud persistence until Supabase is enabled.</p>
-              <code className="block bg-black/20 p-2 rounded">Authorization: Bearer YOUR_API_KEY</code>
+              <code className="block rounded bg-black/20 p-2">Authorization: Bearer YOUR_API_KEY</code>
             </div>
           </CardContent>
         </Card>
@@ -154,11 +253,9 @@ export default function Integrations() {
                 <Textarea
                   value={exportedData.substring(0, 200) + "..."}
                   readOnly
-                  className="glass-input h-32 text-xs font-mono"
+                  className="glass-input h-32 font-mono text-xs"
                 />
-                <p className="text-xs text-foreground/60">
-                  {records.length} records exported. File downloaded automatically.
-                </p>
+                <p className="text-xs text-foreground/60">{records.length} records exported. File downloaded automatically.</p>
               </div>
             )}
           </CardContent>
@@ -178,7 +275,7 @@ export default function Integrations() {
                 value={importData}
                 onChange={(e) => setImportData(e.target.value)}
                 placeholder={`{"version": ${EXPORT_SCHEMA_VERSION}, "records": [...], "profile": {...}}`}
-                className="glass-input h-32 text-xs font-mono"
+                className="glass-input h-32 font-mono text-xs"
               />
             </div>
             <Button onClick={() => void handleImport()} className="w-full glass-button" disabled={!importData}>
@@ -224,12 +321,12 @@ export default function Integrations() {
         <CardContent className="space-y-4">
           <div className="space-y-3 text-sm">
             <div>
-              <h4 className="font-semibold mb-2">GET /api/skintrack</h4>
-              <p className="text-foreground/70 mb-2">Returns documentation JSON (no database reads).</p>
+              <h4 className="mb-2 font-semibold">GET /api/skintrack</h4>
+              <p className="mb-2 text-foreground/70">Returns documentation JSON (no database reads).</p>
             </div>
             <div>
-              <h4 className="font-semibold mb-2">POST /api/skintrack</h4>
-              <p className="text-foreground/70 mb-2">Validates body shape and echoes a synthetic record; does not write to Supabase yet.</p>
+              <h4 className="mb-2 font-semibold">POST /api/skintrack</h4>
+              <p className="mb-2 text-foreground/70">Validates body shape and echoes a synthetic record; use Supabase sync for cloud persistence.</p>
             </div>
           </div>
         </CardContent>

@@ -8,24 +8,27 @@ import {
   LineChart,
   Link2,
   ScanLine,
+  SlidersHorizontal,
   User,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import ImageCapture from "@/components/image-capture"
-import ImageAnalysis from "@/components/image-analysis"
-import SymptomTracker from "@/components/symptom-tracker"
-import DataAnalysis from "@/components/data-analysis"
+import ImageCapture from "@/features/images/image-capture"
+import ImageAnalysis from "@/features/images/image-analysis"
+import SymptomTracker from "@/features/symptom/symptom-tracker"
+import DataAnalysis from "@/features/data/data-analysis"
 import ImageGallery from "@/components/image-gallery"
-import ProfileManager from "@/components/profile-manager"
-import BodyMap from "@/components/body-map"
-import Integrations from "@/components/integrations"
+import ProfileManager from "@/features/profile/profile-manager"
+import BodyMap from "@/features/body-map/body-map"
+import Integrations from "@/features/integrations/integrations"
+import ProductSetup from "@/features/setup/product-setup"
 import AboutSkinTrack from "@/components/about-skintrack"
 import { StorageErrorBanner } from "@/components/storage-error-banner"
 import { useSkinTrack } from "@/components/skintrack-provider"
 import { cn } from "@/lib/utils"
-import type { NewSkinTrackRecordInput } from "@/lib/types"
+import type { ImageMetadata, NewSkinTrackRecordInput } from "@/lib/types"
+import { toast } from "sonner"
 
 const navTriggerClass =
   "flex h-auto flex-col items-center gap-1 rounded-lg p-2 text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-cyan-600 data-[state=active]:bg-cyan-50 data-[state=active]:text-cyan-600 dark:text-gray-400 dark:hover:bg-slate-800 dark:hover:text-cyan-400 dark:data-[state=active]:bg-cyan-950/40 dark:data-[state=active]:text-cyan-400"
@@ -112,7 +115,7 @@ export default function HomePage() {
     await saveRecord(input)
   }
 
-  const handleImageCaptured = (payload: { type: "image"; filename: string; image: string }) => {
+  const handleImageCaptured = (payload: { type: "image"; filename: string; image: string; metadata?: ImageMetadata }) => {
     void handleRecordSaved(payload)
   }
 
@@ -162,9 +165,11 @@ export default function HomePage() {
                     deferredPrompt
                       ? handleInstallClick
                       : () => {
-                          alert(
-                            "To install: \n\n1. Click the menu (⋮) in your browser\n2. Select 'Install SkinTrack+' or 'Add to Home Screen'\n3. Enjoy the native app experience!",
-                          )
+                          toast.info("Install SkinTrack+", {
+                            description:
+                              "Open the browser menu (⋮), then choose Install or Add to Home Screen. Open the app from your home screen.",
+                            duration: 10_000,
+                          })
                         }
                   }
                   size="sm"
@@ -291,6 +296,12 @@ export default function HomePage() {
             </div>
           </TabsContent>
 
+          <TabsContent value="setup" className="mt-0 outline-none focus-visible:outline-none">
+            <div className="glass-card rounded-2xl p-6">
+              <ProductSetup />
+            </div>
+          </TabsContent>
+
           <TabsContent value="integrations" className="mt-0 outline-none focus-visible:outline-none">
             <div className="glass-card rounded-2xl p-6">
               <Integrations />
@@ -314,7 +325,7 @@ export default function HomePage() {
         >
           <TabsList
             className={cn(
-              "mx-auto grid h-auto w-full max-w-2xl grid-cols-6 gap-0 rounded-none border-0 bg-transparent px-2 py-2 text-muted-foreground shadow-none backdrop-blur-none sm:px-4",
+              "mx-auto grid h-auto w-full max-w-3xl grid-cols-7 gap-0 rounded-none border-0 bg-transparent px-1 py-2 text-muted-foreground shadow-none backdrop-blur-none sm:px-4",
             )}
           >
             <TabsTrigger value="home" className={cn(navTriggerClass, "!shadow-none data-[state=active]:!bg-cyan-50 dark:data-[state=active]:!bg-cyan-950/40")}>
@@ -332,6 +343,10 @@ export default function HomePage() {
             <TabsTrigger value="insights" className={cn(navTriggerClass, "!shadow-none data-[state=active]:!bg-cyan-50 dark:data-[state=active]:!bg-cyan-950/40")}>
               <LineChart className="h-5 w-5 shrink-0" aria-hidden />
               <span className="text-[10px] font-medium sm:text-xs">Insights</span>
+            </TabsTrigger>
+            <TabsTrigger value="setup" className={cn(navTriggerClass, "!shadow-none data-[state=active]:!bg-cyan-50 dark:data-[state=active]:!bg-cyan-950/40")}>
+              <SlidersHorizontal className="h-5 w-5 shrink-0" aria-hidden />
+              <span className="text-[10px] font-medium sm:text-xs">Setup</span>
             </TabsTrigger>
             <TabsTrigger
               value="integrations"

@@ -8,7 +8,8 @@ export async function GET() {
       endpoint: "/api/skintrack",
       methods: ["GET", "POST"],
       persistence: "local-first",
-      future: "Optional Supabase sync will use server-side routes with auth; see supabase/schema.sql in the repo.",
+      future:
+        "Cloud backup uses the Supabase client from the browser (Data tab) after sign-in, not this route. See supabase/schema.sql.",
       documentation: "Open the Data tab in the app for export/import and API notes.",
     })
   } catch {

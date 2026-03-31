@@ -1,3 +1,4 @@
+import type { DailyMedCheckoff, MedicationCatalogItem } from "@/lib/domain/medications"
 import type { NewSkinTrackRecordInput, SkinTrackExportV1, SkinTrackRecord, UserProfile } from "@/lib/types"
 
 export type SaveRecordResult =
@@ -11,15 +12,21 @@ export type ImportBundleResult =
   | { ok: false; error: string }
 
 /**
- * Persistence abstraction. Local implementation today; Supabase implementation later.
+ * Persistence abstraction. Production path: `createLocalSkinTrackRepository()`.
+ *
+ * Optional cloud backup uses `syncLocalBundleToSupabase` (push-only; see `lib/data/sync.ts`), not
+ * `createSupabaseSkinTrackRepository()` — the latter remains a stub until a remote-first model ships.
  */
 export interface SkinTrackRepository {
   loadRecords(): Promise<SkinTrackRecord[]>
   saveRecord(input: NewSkinTrackRecordInput): Promise<SaveRecordResult>
-  /** Replace all records (e.g. after merge import). Persists and returns stored shape. */
   replaceAllRecords(records: SkinTrackRecord[]): Promise<PersistResult>
   getProfile(): UserProfile
   setProfile(profile: UserProfile): void
+  getMedicationCatalog(): MedicationCatalogItem[]
+  setMedicationCatalog(items: MedicationCatalogItem[]): void
+  getMedDailyByDate(): Record<string, DailyMedCheckoff>
+  setMedDailyByDate(map: Record<string, DailyMedCheckoff>): void
   buildExport(records: SkinTrackRecord[], profile: UserProfile): SkinTrackExportV1
   importBundle(raw: unknown, mergeWithExisting: SkinTrackRecord[]): Promise<ImportBundleResult>
   getWebhookUrl(): string

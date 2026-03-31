@@ -1,7 +1,9 @@
-import type { SkinTrackRepository } from "@/lib/data/repository"
+import { buildExportPayload, parseSkinTrackImport } from "@/lib/data/export-import"
+import type { SkinTrackRepository, ImportBundleResult, PersistResult, SaveRecordResult } from "@/lib/data/repository"
+import type { DailyMedCheckoff, MedicationCatalogItem } from "@/lib/domain/medications"
+import { defaultMedicationCatalog } from "@/lib/domain/medications"
 import {
   emptyUserProfile,
-  EXPORT_SCHEMA_VERSION,
   type NewSkinTrackRecordInput,
   type SkinTrackExportV1,
   type SkinTrackRecord,
@@ -10,28 +12,35 @@ import {
 
 const notConfigured = (): never => {
   throw new Error(
-    "SupabaseRepository is not wired yet. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, then implement sync against supabase/schema.sql.",
+    "Use the local repository for reads/writes. Cloud sync runs via syncLocalBundleToSupabase after sign-in.",
   )
 }
 
 /**
- * Placeholder for a future `SkinTrackRepository` backed by Supabase Auth + Postgres + Storage.
- * Keeps the same interface as the local repository for a later swap or hybrid "local-first + sync" mode.
+ * Stub for a future remote-first `SkinTrackRepository`.
+ *
+ * **Today:** use `createLocalSkinTrackRepository()` for all reads/writes. After sign-in, cloud backup
+ * is `syncLocalBundleToSupabase` in `lib/data/sync.ts` (push-only, numeric local ids preserved inside
+ * JSON `payload`). Do not wire this factory into `SkinTrackProvider` until pull/merge and id mapping exist.
  */
 export function createSupabaseSkinTrackRepository(): SkinTrackRepository {
   return {
-    loadRecords: () => notConfigured(),
-    saveRecord: (_input: NewSkinTrackRecordInput) => notConfigured(),
-    replaceAllRecords: (_records: SkinTrackRecord[]) => notConfigured(),
+    loadRecords: async () => [],
+    saveRecord: (_input: NewSkinTrackRecordInput): Promise<SaveRecordResult> => notConfigured(),
+    replaceAllRecords: (_records: SkinTrackRecord[]): Promise<PersistResult> => notConfigured(),
     getProfile: () => emptyUserProfile(),
     setProfile: () => notConfigured(),
-    buildExport: (_records: SkinTrackRecord[], profile: UserProfile): SkinTrackExportV1 => ({
-      version: EXPORT_SCHEMA_VERSION,
-      exportDate: new Date().toISOString(),
-      records: _records,
-      profile,
-    }),
-    importBundle: () => notConfigured(),
+    getMedicationCatalog: (): MedicationCatalogItem[] => defaultMedicationCatalog(),
+    setMedicationCatalog: (_items: MedicationCatalogItem[]) => notConfigured(),
+    getMedDailyByDate: (): Record<string, DailyMedCheckoff> => ({}),
+    setMedDailyByDate: (_map: Record<string, DailyMedCheckoff>) => notConfigured(),
+    buildExport: (records: SkinTrackRecord[], profile: UserProfile): SkinTrackExportV1 =>
+      buildExportPayload(records, profile),
+    importBundle: async (raw: unknown, _mergeWithExisting: SkinTrackRecord[]): Promise<ImportBundleResult> => {
+      const parsed = parseSkinTrackImport(raw)
+      if (!parsed.ok) return { ok: false, error: parsed.error }
+      return { ok: false, error: "Bundle import requires the local repository." }
+    },
     getWebhookUrl: () => "",
     setWebhookUrl: () => notConfigured(),
     getApiKey: () => "",

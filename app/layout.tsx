@@ -1,5 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
+import { Analytics } from "@vercel/analytics/next"
 import { Work_Sans } from "next/font/google"
 import "./globals.css"
 import { AppProviders } from "./providers"
@@ -52,6 +53,7 @@ export default function RootLayout({
       </head>
       <body className={`${workSans.className} font-sans antialiased`}>
         <AppProviders>{children}</AppProviders>
+        <Analytics />
       </body>
     </html>
   )

@@ -1,21 +1,23 @@
 "use client"
 
+import { useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Download, TrendingUp, TrendingDown, Minus } from "lucide-react"
 import type { SkinTrackRecord, SymptomTrackRecord } from "@/lib/types"
 import { isSymptomRecord } from "@/lib/types"
+import { formatCorrelation, pearsonCorrelation } from "@/lib/analysis/correlation"
 
 type Trend = "increasing" | "decreasing" | "stable"
 
 function TrendIcon({ trend }: { trend: Trend }) {
   switch (trend) {
     case "increasing":
-      return <TrendingUp className="w-4 h-4 text-red-500" />
+      return <TrendingUp className="h-4 w-4 text-red-500" />
     case "decreasing":
-      return <TrendingDown className="w-4 h-4 text-green-500" />
+      return <TrendingDown className="h-4 w-4 text-green-500" />
     default:
-      return <Minus className="w-4 h-4 text-gray-500" />
+      return <Minus className="h-4 w-4 text-gray-500" />
   }
 }
 
@@ -24,7 +26,23 @@ type Props = {
 }
 
 export default function DataAnalysis({ records }: Props) {
-  const symptomRecords = records.filter(isSymptomRecord)
+  const symptomRecords = useMemo(() => {
+    const s = records.filter(isSymptomRecord)
+    return [...s].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+  }, [records])
+
+  const itch = symptomRecords.map((r) => r.itch)
+  const pain = symptomRecords.map((r) => r.pain)
+  const stress = symptomRecords.map((r) => r.stress)
+  const sleep = symptomRecords.map((r) => r.sleep)
+
+  const correlations = useMemo(() => {
+    return {
+      itchStress: pearsonCorrelation(itch, stress),
+      painSleep: pearsonCorrelation(pain, sleep),
+      stressSleep: pearsonCorrelation(stress, sleep),
+    }
+  }, [itch, pain, stress, sleep])
 
   const downloadData = () => {
     const dataStr = JSON.stringify(records, null, 2)
@@ -83,13 +101,13 @@ export default function DataAnalysis({ records }: Props) {
           <CardTitle>Overview Statistics</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-blue-50 rounded-lg dark:bg-blue-950/30">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="rounded-lg bg-blue-50 p-4 text-center dark:bg-blue-950/30">
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{records.length}</div>
               <div className="text-sm text-gray-600 dark:text-gray-400">Total Records</div>
             </div>
 
-            <div className="text-center p-4 bg-green-50 rounded-lg dark:bg-green-950/30">
+            <div className="rounded-lg bg-green-50 p-4 text-center dark:bg-green-950/30">
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {records.filter((r) => r.type === "image").length}
               </div>
@@ -101,7 +119,7 @@ export default function DataAnalysis({ records }: Props) {
               <div className="text-sm text-gray-600 dark:text-gray-400">Symptom Records</div>
             </div>
 
-            <div className="text-center p-4 bg-orange-50 rounded-lg dark:bg-orange-950/30">
+            <div className="rounded-lg bg-orange-50 p-4 text-center dark:bg-orange-950/30">
               <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                 {new Set(symptomRecords.map((r) => r.condition)).size}
               </div>
@@ -111,6 +129,33 @@ export default function DataAnalysis({ records }: Props) {
         </CardContent>
       </Card>
 
+      {symptomRecords.length > 2 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Correlation (Pearson r)</CardTitle>
+            <CardDescription>
+              Based on symptom logs ordered by time. Values from -1 to 1; needs at least 3 entries.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-lg border border-slate-200/80 p-4 dark:border-slate-700">
+                <div className="text-sm text-muted-foreground">Itch × Stress</div>
+                <div className="text-2xl font-semibold">{formatCorrelation(correlations.itchStress)}</div>
+              </div>
+              <div className="rounded-lg border border-slate-200/80 p-4 dark:border-slate-700">
+                <div className="text-sm text-muted-foreground">Pain × Sleep</div>
+                <div className="text-2xl font-semibold">{formatCorrelation(correlations.painSleep)}</div>
+              </div>
+              <div className="rounded-lg border border-slate-200/80 p-4 dark:border-slate-700">
+                <div className="text-sm text-muted-foreground">Stress × Sleep</div>
+                <div className="text-2xl font-semibold">{formatCorrelation(correlations.stressSleep)}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {symptomRecords.length > 0 && (
         <Card>
           <CardHeader>
@@ -118,9 +163,9 @@ export default function DataAnalysis({ records }: Props) {
             <CardDescription>Average levels and recent trends (based on your log order)</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg dark:bg-red-950/30">
+                <div className="flex items-center justify-between rounded-lg bg-red-50 p-4 dark:bg-red-950/30">
                   <div>
                     <div className="font-semibold">Itch Level</div>
                     <div className="text-2xl font-bold text-red-600 dark:text-red-400">{getAverage("itch")}/10</div>
@@ -128,7 +173,7 @@ export default function DataAnalysis({ records }: Props) {
                   <TrendIcon trend={getTrend("itch")} />
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-orange-50 rounded-lg dark:bg-orange-950/30">
+                <div className="flex items-center justify-between rounded-lg bg-orange-50 p-4 dark:bg-orange-950/30">
                   <div>
                     <div className="font-semibold">Pain Level</div>
                     <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{getAverage("pain")}/10</div>
@@ -138,7 +183,7 @@ export default function DataAnalysis({ records }: Props) {
               </div>
 
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg dark:bg-blue-950/30">
+                <div className="flex items-center justify-between rounded-lg bg-blue-50 p-4 dark:bg-blue-950/30">
                   <div>
                     <div className="font-semibold">Stress Level</div>
                     <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{getAverage("stress")}/10</div>
@@ -146,7 +191,7 @@ export default function DataAnalysis({ records }: Props) {
                   <TrendIcon trend={getTrend("stress")} />
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg dark:bg-green-950/30">
+                <div className="flex items-center justify-between rounded-lg bg-green-50 p-4 dark:bg-green-950/30">
                   <div>
                     <div className="font-semibold">Sleep Hours</div>
                     <div className="text-2xl font-bold text-green-600 dark:text-green-400">{getAverage("sleep")}h</div>
@@ -166,7 +211,7 @@ export default function DataAnalysis({ records }: Props) {
         </CardHeader>
         <CardContent>
           <Button onClick={downloadData} className="w-full">
-            <Download className="w-4 h-4 mr-2" />
+            <Download className="mr-2 h-4 w-4" />
             Download Data (JSON)
           </Button>
         </CardContent>

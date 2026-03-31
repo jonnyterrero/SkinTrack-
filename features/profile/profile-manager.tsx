@@ -8,7 +8,10 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSkinTrack } from "@/components/skintrack-provider"
+import { toast } from "sonner"
 import type { UserProfile } from "@/lib/types"
+import DailyMedCheckoff from "@/features/profile/daily-med-checkoff"
+import MedicationCatalog from "@/features/profile/medication-catalog"
 
 export default function ProfileManager() {
   const { profile, setProfile, loading } = useSkinTrack()
@@ -24,7 +27,7 @@ export default function ProfileManager() {
 
   const handleSave = () => {
     setProfile(draft)
-    alert("Profile saved successfully!")
+    toast.success("Profile saved")
   }
 
   return (
@@ -34,11 +37,15 @@ export default function ProfileManager() {
           Profile Management
         </h2>
         <p className="text-foreground/70">
-          Stored locally in your browser{loading ? " (loading…)" : ""}. Use export in the Data tab for backups.
+          Stored locally in your browser{loading ? " (loading…)" : ""}. Use export in the Data tab for backups. Structured
+          medications below are included in versioned exports.
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <MedicationCatalog />
+      <DailyMedCheckoff />
+
+      <div className="grid gap-6 md:grid-cols-2">
         <Card className="glass-card border-slate-200/80 dark:border-slate-700">
           <CardHeader>
             <CardTitle className="text-lg">Personal Information</CardTitle>
@@ -115,13 +122,13 @@ export default function ProfileManager() {
               />
             </div>
             <div>
-              <Label htmlFor="medications">Current Medications</Label>
+              <Label htmlFor="medications">Current Medications (free text)</Label>
               <Textarea
                 id="medications"
                 value={draft.medications}
                 onChange={(e) => handleInputChange("medications", e.target.value)}
                 className="glass-input"
-                placeholder="List current medications..."
+                placeholder="Summary for your records; use the catalog above for structured tracking."
                 rows={3}
               />
             </div>

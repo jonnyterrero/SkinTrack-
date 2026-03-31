@@ -1,5 +1,7 @@
-/** Canonical export bundle version (integer). */
-export const EXPORT_SCHEMA_VERSION = 1 as const
+import type { DailyMedCheckoff, MedicationCatalogItem } from "@/lib/domain/medications"
+
+/** Canonical export bundle version (integer). Bump when bundle shape changes. */
+export const EXPORT_SCHEMA_VERSION = 2 as const
 
 export type UserProfile = {
   name: string
@@ -42,6 +44,19 @@ export type SymptomTrackRecord = {
   notes: string
   bodyArea?: string
   severity?: SeverityLevel
+  /** Optional links to catalog ids when user picks from catalog */
+  medicationIds?: string[]
+}
+
+/** Extra fields stored with image blobs (EXIF-light, location context). */
+export type ImageMetadata = {
+  capturedAt?: string
+  bodyArea?: string
+  source?: "camera" | "upload"
+  note?: string
+  /** Original file dimensions if known */
+  width?: number
+  height?: number
 }
 
 /** Persisted image row: binary lives in IndexedDB via imageRef. */
@@ -54,6 +69,7 @@ export type ImageTrackRecord = {
   imageRef?: string
   /** Populated in memory after hydration (data URL) */
   image?: string
+  metadata?: ImageMetadata
 }
 
 export type SkinTrackRecord = SymptomTrackRecord | ImageTrackRecord
@@ -65,6 +81,7 @@ export type NewImageRecordInput = {
   filename: string
   /** data URL from file reader */
   image: string
+  metadata?: ImageMetadata
 }
 
 export type NewSkinTrackRecordInput = NewSymptomRecordInput | NewImageRecordInput
@@ -74,12 +91,15 @@ export type StoredSkinTrackRecord =
   | SymptomTrackRecord
   | Omit<ImageTrackRecord, "image"> & { imageRef: string }
 
-/** Export file shape (version 1). Images embedded for portability. */
+/** Export file shape (v2). v1 importers are upgraded to this shape. */
 export type SkinTrackExportV1 = {
   version: typeof EXPORT_SCHEMA_VERSION
   exportDate: string
   records: SkinTrackRecord[]
   profile: UserProfile
+  medicationCatalog?: MedicationCatalogItem[]
+  /** ISO date (YYYY-MM-DD) -> checkoff */
+  medDailyByDate?: Record<string, DailyMedCheckoff>
 }
 
 export function isImageRecord(r: SkinTrackRecord): r is ImageTrackRecord {
@@ -97,6 +117,7 @@ export type PersistedImageRow = {
   type: "image"
   filename: string
   imageRef: string
+  metadata?: ImageMetadata
 }
 
 export type PersistedRow = SymptomTrackRecord | PersistedImageRow

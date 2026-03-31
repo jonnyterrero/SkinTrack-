@@ -1,5 +1,7 @@
 import { STORAGE_KEYS } from "@/lib/data/keys"
 import { buildExportPayload, parseSkinTrackImport } from "@/lib/data/export-import"
+import type { DailyMedCheckoff, MedicationCatalogItem } from "@/lib/domain/medications"
+import { defaultMedicationCatalog } from "@/lib/domain/medications"
 import { dataUrlToBlob, generateImageRef } from "@/lib/data/blob-utils"
 import { getImageBlob, putImageBlob } from "@/lib/data/idb"
 import { hydrateRecordsForUi, migrateLegacyRecords } from "@/lib/data/migrate"
@@ -76,6 +78,7 @@ function toPersistedRow(record: SkinTrackRecord, imageRef: string | undefined): 
     type: "image",
     filename: record.filename,
     imageRef: imageRef ?? record.imageRef ?? generateImageRef(),
+    ...(record.metadata ? { metadata: record.metadata } : {}),
   }
 }
 
@@ -132,6 +135,7 @@ export function createLocalSkinTrackRepository(): SkinTrackRepository {
         filename: input.filename,
         imageRef: ref,
         image: input.image,
+        ...(input.metadata ? { metadata: input.metadata } : {}),
       }
 
       const imageRow: PersistedImageRow = {
@@ -140,6 +144,7 @@ export function createLocalSkinTrackRepository(): SkinTrackRepository {
         type: "image",
         filename: input.filename,
         imageRef: ref,
+        ...(input.metadata ? { metadata: input.metadata } : {}),
       }
       const pr = persistRowsToLocalStorage([imageRow, ...persisted])
       if (!pr.ok) return pr
@@ -179,8 +184,55 @@ export function createLocalSkinTrackRepository(): SkinTrackRepository {
       }
     },
 
+    getMedicationCatalog(): MedicationCatalogItem[] {
+      if (typeof window === "undefined") return defaultMedicationCatalog()
+      const raw = localStorage.getItem(STORAGE_KEYS.medicationCatalog)
+      if (!raw) return defaultMedicationCatalog()
+      try {
+        const parsed = JSON.parse(raw) as unknown
+        return Array.isArray(parsed) ? (parsed as MedicationCatalogItem[]) : defaultMedicationCatalog()
+      } catch {
+        return defaultMedicationCatalog()
+      }
+    },
+
+    setMedicationCatalog(items: MedicationCatalogItem[]): void {
+      if (typeof window === "undefined") return
+      try {
+        localStorage.setItem(STORAGE_KEYS.medicationCatalog, JSON.stringify(items))
+      } catch {
+        /* ignore */
+      }
+    },
+
+    getMedDailyByDate(): Record<string, DailyMedCheckoff> {
+      if (typeof window === "undefined") return {}
+      const raw = localStorage.getItem(STORAGE_KEYS.medDailyByDate)
+      if (!raw) return {}
+      try {
+        const parsed = JSON.parse(raw) as unknown
+        return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+          ? (parsed as Record<string, DailyMedCheckoff>)
+          : {}
+      } catch {
+        return {}
+      }
+    },
+
+    setMedDailyByDate(map: Record<string, DailyMedCheckoff>): void {
+      if (typeof window === "undefined") return
+      try {
+        localStorage.setItem(STORAGE_KEYS.medDailyByDate, JSON.stringify(map))
+      } catch {
+        /* ignore */
+      }
+    },
+
     buildExport(records: SkinTrackRecord[], profile: UserProfile): SkinTrackExportV1 {
-      return buildExportPayload(records, profile)
+      return buildExportPayload(records, profile, {
+        medicationCatalog: repo.getMedicationCatalog(),
+        medDailyByDate: repo.getMedDailyByDate(),
+      })
     },
 
     async importBundle(raw: unknown, mergeWithExisting: SkinTrackRecord[]): Promise<ImportBundleResult> {
@@ -203,6 +255,12 @@ export function createLocalSkinTrackRepository(): SkinTrackRepository {
         return { ok: false, error: "Could not save imported data. Storage may be full." }
       }
       repo.setProfile(parsed.bundle.profile)
+      if (parsed.bundle.medicationCatalog) {
+        repo.setMedicationCatalog(parsed.bundle.medicationCatalog)
+      }
+      if (parsed.bundle.medDailyByDate) {
+        repo.setMedDailyByDate(parsed.bundle.medDailyByDate)
+      }
       const hydrated = await repo.loadRecords()
       return { ok: true, records: hydrated, profile: parsed.bundle.profile }
     },
