@@ -1,15 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createRecordSchema } from "@/lib/validators/records"
 import {
-  getAuthenticatedClient,
-  unauthorized,
+  requireAuthAndRateLimit,
   dbError,
   validationError,
 } from "@/lib/api/helpers"
 
 export async function GET(request: NextRequest) {
-  const { supabase, user } = await getAuthenticatedClient()
-  if (!supabase || !user) return unauthorized()
+  const { supabase, user, error: authError } = await requireAuthAndRateLimit()
+  if (authError) return authError
 
   const { searchParams } = request.nextUrl
   const limit = Math.min(Number(searchParams.get("limit") || 100), 500)
@@ -33,8 +32,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: Request) {
-  const { supabase, user } = await getAuthenticatedClient()
-  if (!supabase || !user) return unauthorized()
+  const { supabase, user, error: authError } = await requireAuthAndRateLimit()
+  if (authError) return authError
 
   const body = await request.json()
   const parsed = createRecordSchema.safeParse(body)

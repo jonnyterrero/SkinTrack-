@@ -5,14 +5,13 @@ import {
   validateMagicBytes,
 } from "@/lib/validators/upload"
 import {
-  getAuthenticatedClient,
-  unauthorized,
+  requireAuthAndRateLimit,
   apiError,
 } from "@/lib/api/helpers"
 
 export async function POST(request: NextRequest) {
-  const { supabase, user } = await getAuthenticatedClient()
-  if (!supabase || !user) return unauthorized()
+  const { supabase, user, error: authError } = await requireAuthAndRateLimit()
+  if (authError) return authError
 
   const contentType = request.headers.get("content-type") ?? ""
   if (!contentType.includes("multipart/form-data")) {
@@ -60,8 +59,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const { supabase, user } = await getAuthenticatedClient()
-  if (!supabase || !user) return unauthorized()
+  const { supabase, user, error: authError } = await requireAuthAndRateLimit()
+  if (authError) return authError
 
   const path = request.nextUrl.searchParams.get("path")
   if (!path) {

@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server"
 import { createLesionSchema } from "@/lib/validators/lesions"
 import {
-  getAuthenticatedClient,
-  unauthorized,
+  requireAuthAndRateLimit,
   dbError,
   validationError,
 } from "@/lib/api/helpers"
 
 export async function GET() {
-  const { supabase, user } = await getAuthenticatedClient()
-  if (!supabase || !user) return unauthorized()
+  const { supabase, user, error: authError } = await requireAuthAndRateLimit()
+  if (authError) return authError
 
   const { data, error } = await supabase
     .from("lesions")
@@ -22,8 +21,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { supabase, user } = await getAuthenticatedClient()
-  if (!supabase || !user) return unauthorized()
+  const { supabase, user, error: authError } = await requireAuthAndRateLimit()
+  if (authError) return authError
 
   const body = await request.json()
   const parsed = createLesionSchema.safeParse(body)

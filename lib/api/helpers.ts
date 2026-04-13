@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import type { ZodError } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { checkRateLimit } from "./rate-limit"
 
 export type ApiErrorCode =
   | "UNAUTHORIZED"
@@ -10,6 +11,7 @@ export type ApiErrorCode =
   | "STORAGE_ERROR"
   | "CONFLICT"
   | "NOT_FOUND"
+  | "RATE_LIMITED"
 
 export function apiError(
   code: ApiErrorCode,
@@ -49,4 +51,36 @@ export async function getAuthenticatedClient() {
   } = await supabase.auth.getUser()
   if (error || !user) return { supabase: null, user: null }
   return { supabase, user }
+}
+
+/**
+ * Auth + rate-limit guard for API routes.
+ *
+ * Pattern:
+ *   const { supabase, user, error } = await requireAuthAndRateLimit()
+ *   if (error) return error
+ *
+ * Returns a 401 if not signed in, a 429 if the user is over the
+ * 100-req/60-s budget, or `{ supabase, user, error: null }` on success.
+ */
+export async function requireAuthAndRateLimit() {
+  const { supabase, user } = await getAuthenticatedClient()
+  if (!supabase || !user) {
+    return { supabase: null, user: null, error: unauthorized() }
+  }
+
+  const allowed = await checkRateLimit(supabase, user.id)
+  if (!allowed) {
+    return {
+      supabase: null,
+      user: null,
+      error: apiError(
+        "RATE_LIMITED",
+        "Rate limit exceeded. Try again in 60 seconds.",
+        429,
+      ),
+    }
+  }
+
+  return { supabase, user, error: null as null }
 }

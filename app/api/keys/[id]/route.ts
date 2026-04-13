@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import {
-  getAuthenticatedClient,
-  unauthorized,
+  requireAuthAndRateLimit,
   notFound,
   dbError,
 } from "@/lib/api/helpers"
@@ -9,8 +8,8 @@ import {
 type Params = { params: Promise<{ id: string }> }
 
 export async function DELETE(_request: Request, { params }: Params) {
-  const { supabase, user } = await getAuthenticatedClient()
-  if (!supabase || !user) return unauthorized()
+  const { supabase, user, error: authError } = await requireAuthAndRateLimit()
+  if (authError) return authError
 
   const { id } = await params
 

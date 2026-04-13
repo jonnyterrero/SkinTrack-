@@ -1,13 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server"
 import {
-  getAuthenticatedClient,
-  unauthorized,
+  requireAuthAndRateLimit,
   apiError,
 } from "@/lib/api/helpers"
 
 export async function POST(request: NextRequest) {
-  const { supabase, user } = await getAuthenticatedClient()
-  if (!supabase || !user) return unauthorized()
+  const { supabase, user, error: authError } = await requireAuthAndRateLimit()
+  if (authError) return authError
 
   const body = await request.json()
   const { event, payload } = body as { event?: string; payload?: unknown }

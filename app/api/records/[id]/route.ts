@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
 import { updateRecordSchema } from "@/lib/validators/records"
 import {
-  getAuthenticatedClient,
-  unauthorized,
+  requireAuthAndRateLimit,
   notFound,
   dbError,
   validationError,
@@ -11,8 +10,8 @@ import {
 type Params = { params: Promise<{ id: string }> }
 
 export async function PATCH(request: Request, { params }: Params) {
-  const { supabase, user } = await getAuthenticatedClient()
-  if (!supabase || !user) return unauthorized()
+  const { supabase, user, error: authError } = await requireAuthAndRateLimit()
+  if (authError) return authError
 
   const { id } = await params
   const body = await request.json()
@@ -35,8 +34,8 @@ export async function PATCH(request: Request, { params }: Params) {
 }
 
 export async function DELETE(_request: Request, { params }: Params) {
-  const { supabase, user } = await getAuthenticatedClient()
-  if (!supabase || !user) return unauthorized()
+  const { supabase, user, error: authError } = await requireAuthAndRateLimit()
+  if (authError) return authError
 
   const { id } = await params
   const { error } = await supabase

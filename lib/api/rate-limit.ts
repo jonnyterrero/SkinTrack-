@@ -1,33 +1,22 @@
-const WINDOW_MS = 60_000
-const MAX_REQUESTS = 100
+import type { SupabaseClient } from "@supabase/supabase-js"
 
-type TokenBucket = { count: number; resetAt: number }
-const buckets = new Map<string, TokenBucket>()
-
-export function checkRateLimit(userId: string): { allowed: boolean; remaining: number } {
-  const now = Date.now()
-  let bucket = buckets.get(userId)
-
-  if (!bucket || now > bucket.resetAt) {
-    bucket = { count: 0, resetAt: now + WINDOW_MS }
-    buckets.set(userId, bucket)
-  }
-
-  bucket.count++
-
-  if (bucket.count > MAX_REQUESTS) {
-    return { allowed: false, remaining: 0 }
-  }
-
-  return { allowed: true, remaining: MAX_REQUESTS - bucket.count }
-}
-
-// Periodic cleanup to avoid unbounded memory growth
-if (typeof setInterval !== "undefined") {
-  setInterval(() => {
-    const now = Date.now()
-    for (const [key, bucket] of buckets) {
-      if (now > bucket.resetAt) buckets.delete(key)
-    }
-  }, WINDOW_MS * 2)
+/**
+ * Persistent rate limit check via the Postgres `check_rate_limit` RPC.
+ *
+ * Defaults: 100 requests per 60 seconds per user. The function uses
+ * SELECT ... FOR UPDATE inside the RPC so concurrent requests are
+ * serialized correctly under contention.
+ *
+ * Fail-open on infra errors: if the RPC itself errors (e.g. transient
+ * DB blip) we let the request through rather than locking the user out.
+ */
+export async function checkRateLimit(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc("check_rate_limit", {
+    p_user_id: userId,
+  })
+  if (error) return true
+  return data === true
 }

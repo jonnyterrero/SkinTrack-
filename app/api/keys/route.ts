@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server"
 import { generateApiKey, hashApiKey } from "@/lib/api/api-keys"
 import {
-  getAuthenticatedClient,
-  unauthorized,
+  requireAuthAndRateLimit,
   dbError,
 } from "@/lib/api/helpers"
 
 export async function GET() {
-  const { supabase, user } = await getAuthenticatedClient()
-  if (!supabase || !user) return unauthorized()
+  const { supabase, user, error: authError } = await requireAuthAndRateLimit()
+  if (authError) return authError
 
   const { data, error } = await supabase
     .from("api_keys")
@@ -22,8 +21,8 @@ export async function GET() {
 }
 
 export async function POST() {
-  const { supabase, user } = await getAuthenticatedClient()
-  if (!supabase || !user) return unauthorized()
+  const { supabase, user, error: authError } = await requireAuthAndRateLimit()
+  if (authError) return authError
 
   const raw = generateApiKey()
   const hashed = await hashApiKey(raw)
