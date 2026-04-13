@@ -23,6 +23,7 @@ create table if not exists public.records (
 );
 
 create index if not exists records_user_ts_idx on public.records (user_id, ts desc);
+create index if not exists records_type_idx on public.records (record_type);
 
 create table if not exists public.lesions (
   id uuid primary key,
@@ -72,14 +73,52 @@ alter table public.skin_events enable row level security;
 create policy "lesions_all_own" on public.lesions for all using (auth.uid() = user_id);
 create policy "skin_events_all_own" on public.skin_events for all using (auth.uid() = user_id);
 
--- Storage bucket: create in Supabase UI as "skintrack-images" (private).
--- Path convention: {user_id}/{local_numeric_record_id}/{filename}
--- Enable policies in Dashboard > Storage, or uncomment and adapt:
+-- Triggers ---------------------------------------------------------------
 
--- create policy "skintrack_images_insert_own"
--- on storage.objects for insert to authenticated
--- with check (bucket_id = 'skintrack-images' and (storage.foldername(name))[1] = auth.uid()::text);
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = ''
+as $$
+begin
+  insert into public.profiles (id)
+  values (new.id)
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
 
--- create policy "skintrack_images_select_own"
--- on storage.objects for select to authenticated
--- using (bucket_id = 'skintrack-images' and (storage.foldername(name))[1] = auth.uid()::text);
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+create or replace function public.set_updated_at()
+returns trigger language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_set_updated_at on public.profiles;
+create trigger profiles_set_updated_at
+  before update on public.profiles
+  for each row execute function public.set_updated_at();
+
+-- Storage ----------------------------------------------------------------
+
+insert into storage.buckets (id, name, public)
+values ('skintrack-images', 'skintrack-images', false)
+on conflict (id) do nothing;
+
+create policy "skintrack_images_insert_own"
+on storage.objects for insert to authenticated
+with check (bucket_id = 'skintrack-images' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "skintrack_images_select_own"
+on storage.objects for select to authenticated
+using (bucket_id = 'skintrack-images' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "skintrack_images_delete_own"
+on storage.objects for delete to authenticated
+using (bucket_id = 'skintrack-images' and (storage.foldername(name))[1] = auth.uid()::text);
