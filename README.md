@@ -2,6 +2,15 @@
 
 **A comprehensive Progressive Web App (PWA) for tracking and analyzing chronic skin conditions.**
 
+## Repository layout
+
+| Path | Contents |
+|------|----------|
+| `frontend/` | Next.js app (`npm run dev` / `npm run build` from repo root) |
+| `claude-supabase/supabase/` | Postgres schema and migrations |
+| `backend/skintracker+/` | Python / Streamlit tooling (legacy path name kept) |
+| `cursor/`, `legacy/` | Stubs for IDE notes and archived files |
+
 Code for a skintracker project. Aimed at helping people with chronic skin conditions and illnesses.
 
 *Automatically synced with your [v0.app](https://v0.app) deployments*

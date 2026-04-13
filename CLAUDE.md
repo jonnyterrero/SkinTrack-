@@ -60,6 +60,15 @@ SkinTrack+ is a **local-first Progressive Web App (PWA)** designed for users man
 * Works with local-first model
 * Avoids Firebase vendor lock-in
 
+### Repository layout
+
+* **Next.js (App Router)** — `frontend/` (`package.json`, `app/`, `lib/`, `middleware.ts`, etc.).
+* **Supabase SQL & migrations** — `claude-supabase/supabase/`.
+* **Ancillary backend notes** — `backend/skintracker+/`.
+* **`cursor/`**, **`legacy/`** — stubs for IDE notes and archived material.
+
+Unless noted otherwise, file paths in this document are relative to the repository root.
+
 ---
 
 ## Data Flow (Final)
@@ -90,19 +99,19 @@ SkinTrack+ is a **local-first Progressive Web App (PWA)** designed for users man
   * IndexedDB (image blobs via Dexie)
 * Repository:
 
-  * `createLocalSkinTrackRepository()` = production path (`lib/data/local-repository.ts`)
-  * `createSupabaseSkinTrackRepository()` = stub only, not wired (`lib/data/supabase-repository.ts`)
+  * `createLocalSkinTrackRepository()` = production path (`frontend/lib/data/local-repository.ts`)
+  * `createSupabaseSkinTrackRepository()` = stub only, not wired (`frontend/lib/data/supabase-repository.ts`)
 
 ## Sync
 
-* Legacy push-only: `syncLocalBundleToSupabase()` in `lib/data/sync.ts` (full replace, still present)
-* New sync engine: `lib/sync/engine.ts` + `lib/sync/queue.ts` — idempotent upserts via IndexedDB queue
-* Hook: `hooks/useSyncEngine.ts` — auto-syncs on 30 s interval when authenticated
+* Legacy push-only: `syncLocalBundleToSupabase()` in `frontend/lib/data/sync.ts` (full replace, still present)
+* New sync engine: `frontend/lib/sync/engine.ts` + `frontend/lib/sync/queue.ts` — idempotent upserts via IndexedDB queue
+* Hook: `frontend/hooks/useSyncEngine.ts` — auto-syncs on 30 s interval when authenticated
 * API: `POST /api/sync` — accepts batch operations from the client queue
 
 ## API
 
-* `/api/skintrack` = deprecated echo stub (`app/api/skintrack/route.ts`)
+* `/api/skintrack` = deprecated echo stub (`frontend/app/api/skintrack/route.ts`)
 * Profile: `GET /api/profile`, `PUT /api/profile`
 * Records: `GET /api/records`, `POST /api/records`, `PATCH /api/records/[id]`, `DELETE /api/records/[id]`
 * Lesions: `GET /api/lesions`, `POST /api/lesions`, `GET /api/lesions/[id]`, `PATCH /api/lesions/[id]`, `DELETE /api/lesions/[id]`
@@ -114,7 +123,7 @@ SkinTrack+ is a **local-first Progressive Web App (PWA)** designed for users man
 
 ## Supabase
 
-* Schema complete (`supabase/schema.sql`):
+* Schema complete (`claude-supabase/supabase/schema.sql`):
 
   * profiles, records, lesions, skin_events
 * RLS enabled on all 4 tables + storage
@@ -127,19 +136,19 @@ SkinTrack+ is a **local-first Progressive Web App (PWA)** designed for users man
 
 ## Auth
 
-* Browser client: `lib/supabase/browser-client.ts` (lazy singleton)
-* Server client: `lib/supabase/server.ts` (cookie-based via `@supabase/ssr`)
-* Session refresh: `middleware.ts` at repo root
-* Auth callback: `app/auth/callback/route.ts` (PKCE code exchange)
-* Login page: `app/login/page.tsx` (magic link form)
-* Auth context: `context/AuthContext.tsx` (wired into `app/providers.tsx`)
+* Browser client: `frontend/lib/supabase/browser-client.ts` (lazy singleton)
+* Server client: `frontend/lib/supabase/server.ts` (cookie-based via `@supabase/ssr`)
+* Session refresh: `frontend/middleware.ts`
+* Auth callback: `frontend/app/auth/callback/route.ts` (PKCE code exchange)
+* Login page: `frontend/app/login/page.tsx` (magic link form)
+* Auth context: `frontend/context/AuthContext.tsx` (wired into `frontend/app/providers.tsx`)
 
 ## Security
 
-* Rate limiting: `lib/api/rate-limit.ts` (100 req/min per user, in-memory token bucket)
-* API key hashing: `lib/api/api-keys.ts` (SHA-256, `sk_` prefixed keys)
-* Input sanitization: `lib/api/sanitize.ts` (strips angle brackets from text fields)
-* Zod validation: `lib/validators/` — schemas for profile, records, lesions, skin-events, uploads
+* Rate limiting: `frontend/lib/api/rate-limit.ts` (100 req/min per user, in-memory token bucket)
+* API key hashing: `frontend/lib/api/api-keys.ts` (SHA-256, `sk_` prefixed keys)
+* Input sanitization: `frontend/lib/api/sanitize.ts` (strips angle brackets from text fields)
+* Zod validation: `frontend/lib/validators/` — schemas for profile, records, lesions, skin-events, uploads
 * Upload validation: MIME type allowlist + magic byte verification + 10 MB limit
 
 ## Risks (remaining)
@@ -220,12 +229,12 @@ NEXT_PUBLIC_ENABLE_UNET=false
 
 ### Required Files
 
-* `lib/supabase/browser-client.ts` *(exists — lazy singleton browser client)*
-* `lib/supabase/server.ts` *(exists — cookie-based server client via `@supabase/ssr`)*
-* `middleware.ts` *(exists — session refresh middleware)*
-* `app/login/page.tsx` *(exists — magic link login form)*
-* `app/auth/callback/route.ts` *(exists — PKCE code exchange)*
-* `context/AuthContext.tsx` *(exists — React auth context wired into providers)*
+* `frontend/lib/supabase/browser-client.ts` *(exists — lazy singleton browser client)*
+* `frontend/lib/supabase/server.ts` *(exists — cookie-based server client via `@supabase/ssr`)*
+* `frontend/middleware.ts` *(exists — session refresh middleware)*
+* `frontend/app/login/page.tsx` *(exists — magic link login form)*
+* `frontend/app/auth/callback/route.ts` *(exists — PKCE code exchange)*
+* `frontend/context/AuthContext.tsx` *(exists — React auth context wired into providers)*
 
 ## Behavior
 
@@ -394,9 +403,9 @@ idle → dirty → syncing → synced | error
 
 ## Files
 
-* `lib/sync/engine.ts`
-* `lib/sync/queue.ts`
-* `hooks/useSyncEngine.ts`
+* `frontend/lib/sync/engine.ts`
+* `frontend/lib/sync/queue.ts`
+* `frontend/hooks/useSyncEngine.ts`
 
 ---
 
@@ -476,13 +485,13 @@ idle → dirty → syncing → synced | error
 # 14. FILE STRUCTURE
 
 ```
-app/api/*
-lib/supabase/*
-lib/sync/*
-lib/types/*
-lib/validators/*
-context/*
-middleware.ts
+frontend/app/api/*
+frontend/lib/supabase/*
+frontend/lib/sync/*
+frontend/lib/types/*
+frontend/lib/validators/*
+frontend/context/*
+frontend/middleware.ts
 ```
 
 ---
@@ -501,12 +510,12 @@ middleware.ts
 
 * Auth system: server client, middleware, callback, login page, AuthContext
 * `@supabase/ssr` added for cookie-based server auth
-* `AuthProvider` wired into `app/providers.tsx`
+* `AuthProvider` wired into `frontend/app/providers.tsx`
 
 ## Phase 3 — DONE (2026-04-13)
 
-* Zod validators: `lib/validators/` (profile, records, lesions, skin-events, upload)
-* API helpers: `lib/api/helpers.ts` (auth guard, error format, DB error)
+* Zod validators: `frontend/lib/validators/` (profile, records, lesions, skin-events, upload)
+* API helpers: `frontend/lib/api/helpers.ts` (auth guard, error format, DB error)
 * Profile API: `GET /api/profile`, `PUT /api/profile`
 * Records API: `GET/POST /api/records`, `PATCH/DELETE /api/records/[id]`
 
@@ -520,20 +529,20 @@ middleware.ts
 * Upload API: `POST /api/upload` (multipart, MIME + magic byte validation, 10 MB limit)
 * Signed URLs: `GET /api/upload?path=` (1 hr expiry)
 * Delete images: `DELETE /api/upload/[id]`
-* Validators: `lib/validators/upload.ts`
+* Validators: `frontend/lib/validators/upload.ts`
 
 ## Phase 6 — DONE (2026-04-13)
 
-* Sync queue: `lib/sync/queue.ts` (IndexedDB via Dexie, enqueue/dequeue/peek)
-* Sync engine: `lib/sync/engine.ts` (idempotent upserts, retry with backoff, state machine)
-* Hook: `hooks/useSyncEngine.ts` (30 s auto-sync interval)
+* Sync queue: `frontend/lib/sync/queue.ts` (IndexedDB via Dexie, enqueue/dequeue/peek)
+* Sync engine: `frontend/lib/sync/engine.ts` (idempotent upserts, retry with backoff, state machine)
+* Hook: `frontend/hooks/useSyncEngine.ts` (30 s auto-sync interval)
 * Sync API: `POST /api/sync` (batch operations endpoint)
 
 ## Phase 7 — DONE (2026-04-13)
 
-* Rate limiting: `lib/api/rate-limit.ts` (100 req/min in-memory token bucket)
-* API key hashing: `lib/api/api-keys.ts` (SHA-256, `sk_` prefix generation)
-* Input sanitization: `lib/api/sanitize.ts` (angle bracket stripping)
+* Rate limiting: `frontend/lib/api/rate-limit.ts` (100 req/min in-memory token bucket)
+* API key hashing: `frontend/lib/api/api-keys.ts` (SHA-256, `sk_` prefix generation)
+* Input sanitization: `frontend/lib/api/sanitize.ts` (angle bracket stripping)
 * Webhook: `POST /api/webhook` (forwards events to user-configured URL)
 * API Keys: `POST /api/keys`, `DELETE /api/keys/[id]`
 

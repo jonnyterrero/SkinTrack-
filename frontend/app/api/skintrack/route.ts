@@ -9,7 +9,7 @@ export async function GET() {
       methods: ["GET", "POST"],
       persistence: "local-first",
       future:
-        "Cloud backup uses the Supabase client from the browser (Data tab) after sign-in, not this route. See supabase/schema.sql.",
+        "Cloud backup uses the Supabase client from the browser (Data tab) after sign-in, not this route. See claude-supabase/supabase/schema.sql.",
       documentation: "Open the Data tab in the app for export/import and API notes.",
     })
   } catch {
