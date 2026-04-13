@@ -14,30 +14,17 @@ export async function DELETE(_request: Request, { params }: Params) {
 
   const { id } = await params
 
-  const { data: profile, error: fetchErr } = await supabase
-    .from("profiles")
-    .select("skintrack_profile")
-    .eq("id", user.id)
-    .single()
+  const { data, error } = await supabase
+    .from("api_keys")
+    .update({ revoked_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .is("revoked_at", null)
+    .select("id")
+    .maybeSingle()
 
-  if (fetchErr) return dbError(fetchErr.message)
-
-  const existing = (profile?.skintrack_profile ?? {}) as Record<string, unknown>
-  const keys = Array.isArray(existing.apiKeys) ? existing.apiKeys : []
-  const filtered = keys.filter(
-    (k: Record<string, unknown>) => k.id !== id,
-  )
-
-  if (filtered.length === keys.length) {
-    return notFound("API key")
-  }
-
-  const { error: updateErr } = await supabase
-    .from("profiles")
-    .update({ skintrack_profile: { ...existing, apiKeys: filtered } })
-    .eq("id", user.id)
-
-  if (updateErr) return dbError(updateErr.message)
+  if (error) return dbError(error.message)
+  if (!data) return notFound("API key")
 
   return new NextResponse(null, { status: 204 })
 }

@@ -6,36 +6,44 @@ import {
   dbError,
 } from "@/lib/api/helpers"
 
+export async function GET() {
+  const { supabase, user } = await getAuthenticatedClient()
+  if (!supabase || !user) return unauthorized()
+
+  const { data, error } = await supabase
+    .from("api_keys")
+    .select("id, prefix, created_at, last_used_at")
+    .eq("user_id", user.id)
+    .is("revoked_at", null)
+    .order("created_at", { ascending: false })
+
+  if (error) return dbError(error.message)
+  return NextResponse.json(data)
+}
+
 export async function POST() {
   const { supabase, user } = await getAuthenticatedClient()
   if (!supabase || !user) return unauthorized()
 
   const raw = generateApiKey()
   const hashed = await hashApiKey(raw)
+  const prefix = raw.slice(0, 10)
 
-  const { data: profile, error: fetchErr } = await supabase
-    .from("profiles")
-    .select("skintrack_profile")
-    .eq("id", user.id)
+  const { data, error } = await supabase
+    .from("api_keys")
+    .insert({
+      user_id: user.id,
+      hash: hashed,
+      prefix,
+    })
+    .select("id, prefix, created_at")
     .single()
 
-  if (fetchErr) return dbError(fetchErr.message)
+  if (error) return dbError(error.message)
 
-  const existing = (profile?.skintrack_profile ?? {}) as Record<string, unknown>
-  const keys = Array.isArray(existing.apiKeys) ? existing.apiKeys : []
-  keys.push({
-    id: crypto.randomUUID(),
-    hash: hashed,
-    prefix: raw.slice(0, 10),
-    created_at: new Date().toISOString(),
-  })
-
-  const { error: updateErr } = await supabase
-    .from("profiles")
-    .update({ skintrack_profile: { ...existing, apiKeys: keys } })
-    .eq("id", user.id)
-
-  if (updateErr) return dbError(updateErr.message)
-
-  return NextResponse.json({ key: raw, prefix: raw.slice(0, 10) }, { status: 201 })
+  // Return the raw key exactly once — clients must store it themselves.
+  return NextResponse.json(
+    { id: data.id, key: raw, prefix: data.prefix, created_at: data.created_at },
+    { status: 201 },
+  )
 }
