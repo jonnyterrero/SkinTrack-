@@ -3,7 +3,7 @@ import { createRecordSchema } from "@/lib/validators/records"
 import {
   requireAuthAndRateLimit,
   dbError,
-  validationError,
+  sanitizedBody,
 } from "@/lib/api/helpers"
 
 export async function GET(request: NextRequest) {
@@ -35,13 +35,12 @@ export async function POST(request: Request) {
   const { supabase, user, error: authError } = await requireAuthAndRateLimit()
   if (authError) return authError
 
-  const body = await request.json()
-  const parsed = createRecordSchema.safeParse(body)
-  if (!parsed.success) return validationError(parsed.error)
+  const result = await sanitizedBody(request, createRecordSchema)
+  if (!result.ok) return result.response
 
   const { data, error } = await supabase
     .from("records")
-    .insert({ ...parsed.data, user_id: user.id })
+    .insert({ ...result.data, user_id: user.id })
     .select()
     .single()
 

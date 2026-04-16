@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import type { ZodError } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { checkRateLimit } from "./rate-limit"
+import { sanitizeObject } from "./sanitize"
 
 export type ApiErrorCode =
   | "UNAUTHORIZED"
@@ -83,4 +84,29 @@ export async function requireAuthAndRateLimit() {
   }
 
   return { supabase, user, error: null as null }
+}
+
+export async function sanitizedBody<T>(
+  request: Request,
+  schema: { safeParse: (data: unknown) => { success: true; data: T } | { success: false; error: ZodError } },
+): Promise<
+  | { ok: true; data: T }
+  | { ok: false; response: NextResponse }
+> {
+  let raw: unknown
+  try {
+    raw = await request.json()
+  } catch {
+    return { ok: false, response: apiError("VALIDATION_ERROR", "Invalid JSON body.", 400) }
+  }
+
+  if (typeof raw === "object" && raw !== null && !Array.isArray(raw)) {
+    raw = sanitizeObject(raw as Record<string, unknown>)
+  }
+
+  const parsed = schema.safeParse(raw)
+  if (!parsed.success) {
+    return { ok: false, response: validationError(parsed.error) }
+  }
+  return { ok: true, data: parsed.data }
 }

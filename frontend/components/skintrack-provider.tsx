@@ -18,6 +18,10 @@ import {
   type SkinTrackRecord,
   type UserProfile,
 } from "@/lib/types"
+import { useAuth } from "@/context/AuthContext"
+import { useSyncEngine } from "@/hooks/useSyncEngine"
+import { enqueue } from "@/lib/sync/queue"
+import type { SyncState } from "@/lib/sync/engine"
 
 type SkinTrackContextValue = {
   records: SkinTrackRecord[]
@@ -33,11 +37,16 @@ type SkinTrackContextValue = {
   replaceRecords: (records: SkinTrackRecord[]) => Promise<boolean>
   importBundle: (raw: unknown) => Promise<{ ok: true } | { ok: false; error: string }>
   repository: SkinTrackRepository
+  syncState: SyncState
+  pendingCount: number
+  sync: () => Promise<SyncState | undefined>
 }
 
 const SkinTrackContext = createContext<SkinTrackContextValue | null>(null)
 
 export function SkinTrackProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
+  const { syncState, pendingCount, sync } = useSyncEngine()
   const repository = useMemo(() => createLocalSkinTrackRepository(), [])
 
   const [records, setRecords] = useState<SkinTrackRecord[]>([])
@@ -78,25 +87,49 @@ export function SkinTrackProvider({ children }: { children: ReactNode }) {
         return false
       }
       setRecords((prev) => [result.record, ...prev])
+      if (user) {
+        void enqueue({
+          table: "records",
+          action: "upsert",
+          row_id: String(result.record.id),
+          payload: result.record as unknown as Record<string, unknown>,
+        })
+      }
       return true
     },
-    [repository],
+    [repository, user],
   )
 
   const setProfile = useCallback(
     (p: UserProfile) => {
       repository.setProfile(p)
       setProfileState(p)
+      if (user) {
+        void enqueue({
+          table: "profiles",
+          action: "upsert",
+          row_id: user.id,
+          payload: p as unknown as Record<string, unknown>,
+        })
+      }
     },
-    [repository],
+    [repository, user],
   )
 
   const upsertLesion = useCallback(
     (lesion: Lesion) => {
       repository.upsertLesion(lesion)
       setLesionsState(repository.getLesions())
+      if (user) {
+        void enqueue({
+          table: "lesions",
+          action: "upsert",
+          row_id: lesion.id,
+          payload: lesion as unknown as Record<string, unknown>,
+        })
+      }
     },
-    [repository],
+    [repository, user],
   )
 
   const replaceRecords = useCallback(
@@ -142,6 +175,9 @@ export function SkinTrackProvider({ children }: { children: ReactNode }) {
       replaceRecords,
       importBundle,
       repository,
+      syncState,
+      pendingCount,
+      sync,
     }),
     [
       records,
@@ -157,6 +193,9 @@ export function SkinTrackProvider({ children }: { children: ReactNode }) {
       replaceRecords,
       importBundle,
       repository,
+      syncState,
+      pendingCount,
+      sync,
     ],
   )
 

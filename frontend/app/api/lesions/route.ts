@@ -3,7 +3,7 @@ import { createLesionSchema } from "@/lib/validators/lesions"
 import {
   requireAuthAndRateLimit,
   dbError,
-  validationError,
+  sanitizedBody,
 } from "@/lib/api/helpers"
 
 export async function GET() {
@@ -24,14 +24,13 @@ export async function POST(request: Request) {
   const { supabase, user, error: authError } = await requireAuthAndRateLimit()
   if (authError) return authError
 
-  const body = await request.json()
-  const parsed = createLesionSchema.safeParse(body)
-  if (!parsed.success) return validationError(parsed.error)
+  const result = await sanitizedBody(request, createLesionSchema)
+  if (!result.ok) return result.response
 
   const row = {
-    ...(parsed.data.id ? { id: parsed.data.id } : {}),
+    ...(result.data.id ? { id: result.data.id } : {}),
     user_id: user.id,
-    label: parsed.data.label,
+    label: result.data.label,
   }
 
   const { data, error } = await supabase

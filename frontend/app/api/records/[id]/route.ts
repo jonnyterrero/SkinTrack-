@@ -4,7 +4,7 @@ import {
   requireAuthAndRateLimit,
   notFound,
   dbError,
-  validationError,
+  sanitizedBody,
 } from "@/lib/api/helpers"
 
 type Params = { params: Promise<{ id: string }> }
@@ -14,13 +14,12 @@ export async function PATCH(request: Request, { params }: Params) {
   if (authError) return authError
 
   const { id } = await params
-  const body = await request.json()
-  const parsed = updateRecordSchema.safeParse(body)
-  if (!parsed.success) return validationError(parsed.error)
+  const result = await sanitizedBody(request, updateRecordSchema)
+  if (!result.ok) return result.response
 
   const { data, error } = await supabase
     .from("records")
-    .update(parsed.data)
+    .update(result.data)
     .eq("id", id)
     .eq("user_id", user.id)
     .select()

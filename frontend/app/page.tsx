@@ -4,13 +4,19 @@ import { useEffect, useState } from "react"
 import {
   BookOpen,
   ChevronLeft,
+  Cloud,
+  CloudOff,
   Home,
   LineChart,
   Link2,
+  Loader2,
+  LogIn,
+  LogOut,
   ScanLine,
   SlidersHorizontal,
   User,
 } from "lucide-react"
+import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -35,7 +41,8 @@ const navTriggerClass =
   "flex h-auto flex-col items-center gap-1 rounded-lg p-2 text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-cyan-600 data-[state=active]:bg-cyan-50 data-[state=active]:text-cyan-600 dark:text-gray-400 dark:hover:bg-slate-800 dark:hover:text-cyan-400 dark:data-[state=active]:bg-cyan-950/40 dark:data-[state=active]:text-cyan-400"
 
 export default function HomePage() {
-  const { records, loading, storageError, clearStorageError, saveRecord } = useSkinTrack()
+  const { records, loading, storageError, clearStorageError, saveRecord, syncState, pendingCount, sync } = useSkinTrack()
+  const { user, signOut } = useAuth()
   const [showLegacySymptomLog, setShowLegacySymptomLog] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState<unknown>(null)
   const [isInstalled, setIsInstalled] = useState(false)
@@ -161,6 +168,48 @@ export default function HomePage() {
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
+              {user && (
+                <button
+                  type="button"
+                  onClick={() => void sync()}
+                  className="relative rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-slate-800"
+                  title={`Sync: ${syncState}${pendingCount > 0 ? ` (${pendingCount} pending)` : ""}`}
+                >
+                  {syncState === "syncing" ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-cyan-500" />
+                  ) : syncState === "error" ? (
+                    <CloudOff className="h-5 w-5 text-red-500" />
+                  ) : (
+                    <Cloud className="h-5 w-5 text-emerald-500" />
+                  )}
+                  {pendingCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-500 text-[10px] font-bold text-white">
+                      {pendingCount > 9 ? "9+" : pendingCount}
+                    </span>
+                  )}
+                </button>
+              )}
+              {user ? (
+                <Button
+                  onClick={() => void signOut()}
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 rounded-lg px-3 py-2 text-sm"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span className="hidden sm:inline">Sign out</span>
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => setTab("integrations")}
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 rounded-lg px-3 py-2 text-sm"
+                >
+                  <LogIn className="h-4 w-4" />
+                  <span className="hidden sm:inline">Sign in</span>
+                </Button>
+              )}
               {!isInstalled && (
                 <Button
                   onClick={

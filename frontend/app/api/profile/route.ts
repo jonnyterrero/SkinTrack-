@@ -3,7 +3,7 @@ import { profileUpdateSchema } from "@/lib/validators/profile"
 import {
   requireAuthAndRateLimit,
   dbError,
-  validationError,
+  sanitizedBody,
 } from "@/lib/api/helpers"
 
 export async function GET() {
@@ -24,13 +24,12 @@ export async function PUT(request: Request) {
   const { supabase, user, error: authError } = await requireAuthAndRateLimit()
   if (authError) return authError
 
-  const body = await request.json()
-  const parsed = profileUpdateSchema.safeParse(body)
-  if (!parsed.success) return validationError(parsed.error)
+  const result = await sanitizedBody(request, profileUpdateSchema)
+  if (!result.ok) return result.response
 
   const { error, data } = await supabase
     .from("profiles")
-    .update({ ...parsed.data, updated_at: new Date().toISOString() })
+    .update({ ...result.data, updated_at: new Date().toISOString() })
     .eq("id", user.id)
     .select()
     .single()

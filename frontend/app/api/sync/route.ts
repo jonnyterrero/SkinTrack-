@@ -4,12 +4,13 @@ import {
   dbError,
   apiError,
 } from "@/lib/api/helpers"
+import { sanitizeObject } from "@/lib/api/sanitize"
 
 export async function POST(request: Request) {
   const { supabase, user, error: authError } = await requireAuthAndRateLimit()
   if (authError) return authError
 
-  const body = await request.json()
+  const body = await request.json() as Record<string, unknown>
   if (!Array.isArray(body.operations)) {
     return apiError("VALIDATION_ERROR", "Expected { operations: [...] }", 400)
   }
@@ -22,7 +23,8 @@ export async function POST(request: Request) {
     row_id: string
     payload: Record<string, unknown>
   }>) {
-    const { table, action, row_id, payload } = op
+    const { table, action, row_id, payload: rawPayload } = op
+    const payload = sanitizeObject(rawPayload)
 
     if (!["records", "lesions", "skin_events", "profiles"].includes(table)) {
       results.push({ row_id, ok: false, error: `Invalid table: ${table}` })

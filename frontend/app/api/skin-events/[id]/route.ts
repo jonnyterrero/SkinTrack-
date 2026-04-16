@@ -4,7 +4,7 @@ import {
   requireAuthAndRateLimit,
   notFound,
   dbError,
-  validationError,
+  sanitizedBody,
 } from "@/lib/api/helpers"
 
 type Params = { params: Promise<{ id: string }> }
@@ -33,13 +33,12 @@ export async function PATCH(request: Request, { params }: Params) {
   if (authError) return authError
 
   const { id } = await params
-  const body = await request.json()
-  const parsed = updateSkinEventSchema.safeParse(body)
-  if (!parsed.success) return validationError(parsed.error)
+  const result = await sanitizedBody(request, updateSkinEventSchema)
+  if (!result.ok) return result.response
 
   const { data, error } = await supabase
     .from("skin_events")
-    .update(parsed.data)
+    .update(result.data)
     .eq("id", id)
     .eq("user_id", user.id)
     .select()

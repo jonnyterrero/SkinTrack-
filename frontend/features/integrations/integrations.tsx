@@ -8,39 +8,25 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useSkinTrack } from "@/components/skintrack-provider"
 import { EXPORT_SCHEMA_VERSION } from "@/lib/types"
-import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/browser-client"
-import { syncLocalBundleToSupabase } from "@/lib/data/sync"
+import { isSupabaseConfigured } from "@/lib/supabase/browser-client"
+import { useAuth } from "@/context/AuthContext"
 import { toast } from "sonner"
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser-client"
 
 export default function Integrations() {
-  const { records, profile, repository, importBundle, refresh } = useSkinTrack()
+  const { records, profile, repository, importBundle, refresh, syncState, pendingCount, sync } = useSkinTrack()
+  const { user, signOut } = useAuth()
   const [apiKey, setApiKey] = useState("")
   const [importData, setImportData] = useState("")
   const [exportedData, setExportedData] = useState("")
   const [webhookUrl, setWebhookUrl] = useState("")
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
-  const [syncing, setSyncing] = useState(false)
   const [authEmail, setAuthEmail] = useState("")
-  const [userEmail, setUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
     setApiKey(repository.getApiKey())
     setWebhookUrl(repository.getWebhookUrl())
   }, [repository])
-
-  useEffect(() => {
-    const supabase = getSupabaseBrowserClient()
-    if (!supabase) return
-    void supabase.auth.getUser().then(({ data }) => {
-      setUserEmail(data.user?.email ?? null)
-    })
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserEmail(session?.user?.email ?? null)
-    })
-    return () => subscription.unsubscribe()
-  }, [])
 
   const generateApiKey = () => {
     const key = "sk_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
@@ -80,22 +66,16 @@ export default function Integrations() {
     }
   }
 
-  const handleSyncToCloud = async () => {
-    const supabase = getSupabaseBrowserClient()
-    if (!supabase) {
-      setSyncMessage("Supabase URL/key not configured.")
-      return
-    }
-    setSyncing(true)
+  const handleSyncNow = async () => {
     setSyncMessage(null)
-    const bundle = repository.buildExport(records, profile)
-    const result = await syncLocalBundleToSupabase(supabase, bundle)
-    setSyncing(false)
-    if (result.ok) {
+    const result = await sync()
+    if (result === "synced") {
       toast.success("Synced to cloud")
-    } else {
-      setSyncMessage(result.error)
-      toast.error(result.error)
+    } else if (result === "error") {
+      setSyncMessage("Sync failed — will retry automatically.")
+      toast.error("Sync failed")
+    } else if (result === "dirty") {
+      toast.info("Partial sync — more items pending")
     }
   }
 
@@ -104,20 +84,13 @@ export default function Integrations() {
     if (!supabase || !authEmail.trim()) return
     const { error } = await supabase.auth.signInWithOtp({
       email: authEmail.trim(),
-      options: { emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined },
+      options: { emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined },
     })
     if (error) {
       setSyncMessage(error.message)
       return
     }
     setSyncMessage("Check your email for the login link.")
-  }
-
-  const signOut = async () => {
-    const supabase = getSupabaseBrowserClient()
-    if (!supabase) return
-    await supabase.auth.signOut()
-    setUserEmail(null)
   }
 
   const copyApiEndpoint = () => {
@@ -143,17 +116,22 @@ export default function Integrations() {
       {isSupabaseConfigured() ? (
         <Card className="glass-card border-slate-200/80 dark:border-slate-700">
           <CardHeader>
-            <CardTitle className="text-lg">Supabase (optional)</CardTitle>
+            <CardTitle className="text-lg">Cloud sync (Supabase)</CardTitle>
             <CardDescription>
-              Sign in with a one-time email link, then push your local export bundle to Postgres + Storage. Requires
-              `skintrack-images` bucket and RLS policies in your project.
+              Sign in with a one-time email link to enable automatic cloud backup. Your data syncs every 30 seconds when signed in.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {userEmail ? (
-              <p className="text-sm text-muted-foreground">
-                Signed in as <strong>{userEmail}</strong>
-              </p>
+            {user ? (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Signed in as <strong>{user.email}</strong>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Sync status: <strong>{syncState}</strong>
+                  {pendingCount > 0 && ` — ${pendingCount} pending`}
+                </p>
+              </div>
             ) : (
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
@@ -169,10 +147,10 @@ export default function Integrations() {
               </div>
             )}
             <div className="flex flex-wrap gap-2">
-              <Button type="button" onClick={() => void handleSyncToCloud()} disabled={syncing || !userEmail}>
-                {syncing ? "Syncing…" : "Sync local data to cloud"}
+              <Button type="button" onClick={() => void handleSyncNow()} disabled={syncState === "syncing" || !user}>
+                {syncState === "syncing" ? "Syncing..." : "Sync now"}
               </Button>
-              {userEmail ? (
+              {user ? (
                 <Button type="button" variant="outline" onClick={() => void signOut()}>
                   Sign out
                 </Button>
