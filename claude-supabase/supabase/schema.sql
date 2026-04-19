@@ -169,10 +169,10 @@ declare
   v_count int;
   v_start timestamptz;
 begin
-  select count, window_start
+  select r.count, r.window_start
     into v_count, v_start
-    from public.api_rate_limits
-    where user_id = p_user_id
+    from public.api_rate_limits r
+    where r.user_id = p_user_id
     for update;
 
   if not found then
