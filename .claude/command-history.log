@@ -17,3 +17,28 @@
 [2026-04-12 22:58:38] cd \
 [2026-04-12 22:59:29] cd \
 [2026-04-12 23:06:18] cd \
+[2026-04-20 22:08:05] ls -la \
+[2026-04-20 22:09:26] ls \
+[2026-04-20 22:09:46] ls \
+[2026-04-20 22:09:57] ls \
+[2026-04-20 22:10:40] ls \
+[2026-04-20 22:11:11] ls \
+[2026-04-20 22:11:18] ls \
+[2026-04-20 22:17:24] ls \
+[2026-04-20 22:18:30] ls \
+[2026-04-20 22:20:20] grep -n \
+[2026-04-20 22:26:41] wc -l \
+[2026-04-20 22:27:42] ls \
+[2026-04-20 22:33:33] ls \
+[2026-04-20 22:33:42] ls \
+[2026-04-20 22:34:11] cd \
+[2026-04-20 22:34:29] cd \
+[2026-04-20 22:34:44] cd \
+[2026-04-21 16:38:50] git status --short | head -80
+[2026-04-21 16:39:04] ls frontend/app/api/conditions/ frontend/app/api/account/ frontend/app/api/medications/ frontend/app/onboarding/ frontend/app/body-map/ frontend/app/export/ frontend/app/legal/ 2>&1
+[2026-04-21 16:45:04] ls claude-supabase/supabase/migrations/ 2>&1
+[2026-04-21 21:41:28] rm \
+[2026-04-21 22:58:50] ls frontend/app/api/event-triggers/ frontend/app/api/event-products/ frontend/app/api/event-medications/ frontend/app/api/event-images/ frontend/app/api/lesion-locations/
+[2026-04-22 14:21:01] git status
+[2026-04-22 14:21:08] git log -5 --oneline
+[2026-04-22 14:21:13] git add frontend/ claude-supabase/supabase/migrations/ .claude/command-history.log package-lock.json

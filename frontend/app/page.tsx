@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   BookOpen,
   ChevronLeft,
@@ -17,6 +19,8 @@ import {
   User,
 } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
+import { useReminders } from "@/hooks/useReminders"
+import { apiGet } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -43,11 +47,22 @@ const navTriggerClass =
 export default function HomePage() {
   const { records, loading, storageError, clearStorageError, saveRecord, syncState, pendingCount, sync } = useSkinTrack()
   const { user, signOut } = useAuth()
+  const router = useRouter()
+  useReminders()
   const [showLegacySymptomLog, setShowLegacySymptomLog] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState<unknown>(null)
   const [isInstalled, setIsInstalled] = useState(false)
   const [showUpdateNotification, setShowUpdateNotification] = useState(false)
   const [tab, setTab] = useState("home")
+
+  useEffect(() => {
+    if (!user) return
+    apiGet<{ completed_onboarding: boolean }>("/api/app-preferences")
+      .then((p) => {
+        if (!p.completed_onboarding) router.replace("/onboarding")
+      })
+      .catch(() => {})
+  }, [user, router])
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -231,6 +246,16 @@ export default function HomePage() {
               )}
             </div>
           </div>
+
+          {user && (
+            <div className="mb-4 -mt-2 flex flex-wrap gap-1.5 text-xs">
+              <Link href="/medications" className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Meds &amp; remedies</Link>
+              <Link href="/body-map" className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Body map</Link>
+              <Link href="/export" className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Export</Link>
+              <Link href="/settings" className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Settings</Link>
+              <Link href="/about" className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">About</Link>
+            </div>
+          )}
 
           <StorageErrorBanner message={storageError} onDismiss={clearStorageError} />
 

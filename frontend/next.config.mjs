@@ -1,5 +1,15 @@
 /** @type {import('next').NextConfig} */
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
 const nextConfig = {
+  turbopack: {
+    // Prevent Turbopack from inferring the wrong monorepo root when multiple lockfiles exist.
+    root: __dirname,
+  },
   typescript: {
     ignoreBuildErrors: true,
   },

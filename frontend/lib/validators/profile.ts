@@ -1,7 +1,13 @@
 import { z } from "zod"
 
 export const profileUpdateSchema = z.object({
-  display_name: z.string().max(100).optional(),
+  display_name: z.string().max(100).nullable().optional(),
+  email: z.string().email().max(320).nullable().optional(),
+  clinic_notes: z.string().max(4000).nullable().optional(),
+  onboarding_completed_at: z.string().datetime().nullable().optional(),
+  consent_acknowledged_at: z.string().datetime().nullable().optional(),
+  consent_version: z.string().max(64).nullable().optional(),
+  symptom_scale_version: z.string().max(64).nullable().optional(),
   skintrack_profile: z
     .object({
       name: z.string().max(100).default(""),
