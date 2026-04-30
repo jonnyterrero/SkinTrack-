@@ -89,7 +89,7 @@ Unless noted otherwise, file paths in this document are relative to the reposito
 
 # 2. CURRENT STATE AUDIT
 
-> Last updated: 2026-04-16 — All phases (1–7) complete + end-to-end integration wired.
+> Last updated: 2026-04-22 — Sprint 1–3 (iOS schema) types/validators/routes/UI aligned to live DB. `npx tsc --noEmit` and `next build --webpack` pass.
 
 ## Persistence
 
@@ -113,6 +113,7 @@ Unless noted otherwise, file paths in this document are relative to the reposito
 
 ## API
 
+Sprint 1 (auth/sync foundation):
 * `/api/skintrack` = deprecated echo stub (`frontend/app/api/skintrack/route.ts`)
 * Profile: `GET /api/profile`, `PUT /api/profile`
 * Records: `GET /api/records`, `POST /api/records`, `PATCH /api/records/[id]`, `DELETE /api/records/[id]`
@@ -123,18 +124,40 @@ Unless noted otherwise, file paths in this document are relative to the reposito
 * Webhook: `POST /api/webhook`
 * API Keys: `POST /api/keys`, `DELETE /api/keys/[id]`
 
+Sprint 2 (iOS schema — onboarding, meds, body map, triggers/products):
+* App preferences: `GET/PUT /api/app-preferences`
+* Conditions catalog: `GET /api/conditions` (read-only)
+* User conditions: `GET /api/user-conditions`, `POST /api/user-conditions`, `DELETE /api/user-conditions/[id]`
+* User allergies: `GET /api/user-allergies`, `POST /api/user-allergies`, `PATCH /api/user-allergies/[id]`, `DELETE /api/user-allergies/[id]`
+* Trigger taxonomy: `GET /api/triggers` (read-only canonical list)
+* Medications catalog: `GET/POST /api/medications`, `PATCH/DELETE /api/medications/[id]`
+* Lesion locations: `GET/POST /api/lesion-locations`, `PATCH/DELETE /api/lesion-locations/[id]`
+* Event medications: `GET/POST /api/event-medications`, `PATCH/DELETE /api/event-medications/[id]`
+* Event triggers: `GET/POST /api/event-triggers`, `DELETE /api/event-triggers/[id]`
+* Event products: `GET/POST /api/event-products`, `PATCH/DELETE /api/event-products/[id]`
+* Event images: `GET/POST /api/event-images`, `DELETE /api/event-images/[id]`
+* Event metrics: `GET/POST /api/event-metrics` (upsert on `skin_event_id`)
+* Exports log: `GET/POST /api/exports`
+
+Sprint 3 (App Store / Play Store compliance):
+* Account: `GET /api/account` (full data dump for export), `DELETE /api/account` (hard delete via `delete_user_account()` RPC + storage cleanup)
+
 ## Supabase
 
-* Schema complete (`claude-supabase/supabase/schema.sql`):
+Project `lxispkvlxcvwdrxhxegs` (us-east-2, ACTIVE_HEALTHY).
 
-  * profiles, records, lesions, skin_events
-* RLS enabled on all 4 tables + storage
-* Indexes: `records(user_id, ts)`, `records(record_type)`, `lesions(user_id)`, `skin_events(user_id, ts)`, `skin_events(lesion_id, ts)`
-* Triggers:
+Schema (real, applied to DB — pulled into `claude-supabase/supabase/migrations/`):
+* `20260420042221_ios_schema_enums_and_lookups.sql` — enums (`body_view_enum`, `side_enum`, `med_category_enum`, `image_kind_enum`, `processing_status_enum`, `scale_mode_enum`, `segmentation_mode_enum`, `export_type_enum`); lookup tables `conditions`, `trigger_taxonomy`.
+* `20260420042300_ios_schema_profile_preferences_allergies.sql` — `profiles` extended (`email`, `clinic_notes`, `onboarding_completed_at`, `consent_*`, `symptom_scale_version`); new tables `app_preferences`, `user_conditions`, `user_allergies`.
+* `20260420042331_ios_schema_meds_locations_triggers.sql` — `med_catalog`, `lesion_medications`, `lesion_locations`, `event_medications`, `event_triggers`, `event_products`.
+* `20260420042354_ios_schema_images_metrics_exports.sql` — `event_images`, `event_metrics`, `exports`.
+* `20260421120000_app_account_deletion_and_seed.sql` — extends `handle_new_user()` to seed `app_preferences` + `profiles.email`; adds `delete_user_account()` SECURITY DEFINER RPC.
 
-  * `on_auth_user_created` → auto-creates `profiles` row
-  * `profiles_set_updated_at` → maintains `updated_at`
-* Storage bucket `skintrack-images` created via SQL with insert/select/delete RLS policies scoped to `auth.uid()`
+Plus the legacy Sprint 1 tables (profiles base, records, lesions, skin_events) from `schema.sql` and `20260412120000_add_triggers_index_storage.sql`.
+
+RLS enabled on every user-owned table; all `for all using (auth.uid() = user_id)`. `conditions` and `trigger_taxonomy` are world-readable.
+
+Storage bucket `skintrack-images` (private, `{user_id}/{record_id}/{filename}`) with insert/select/delete RLS scoped to `auth.uid()`.
 
 ## Auth
 
@@ -150,8 +173,25 @@ Unless noted otherwise, file paths in this document are relative to the reposito
 * Rate limiting: `frontend/lib/api/rate-limit.ts` (100 req/min per user, in-memory token bucket) — **active on all API routes** via `requireAuthAndRateLimit()`
 * API key hashing: `frontend/lib/api/api-keys.ts` (SHA-256, `sk_` prefixed keys)
 * Input sanitization: `frontend/lib/api/sanitize.ts` (strips angle brackets from text fields) — **active on all mutating API routes** via `sanitizedBody()` helper in `frontend/lib/api/helpers.ts`
-* Zod validation: `frontend/lib/validators/` — schemas for profile, records, lesions, skin-events, uploads
+* Zod validation: `frontend/lib/validators/` — `profile`, `app-preferences`, `user-conditions`, `user-allergies`, `medications`, `event-context`, `event-assets`, `lesion-locations`, `records`, `lesions`, `skin-events`, `upload`.
 * Upload validation: MIME type allowlist + magic byte verification + 10 MB limit
+
+## App Store / Play Store compliance
+
+* Account deletion: `DELETE /api/account` — purges storage objects under `{user_id}/`, then calls `delete_user_account()` RPC; cascades remove all DB rows.
+* Data export: `GET /api/account` — returns full user dump (profile, prefs, conditions, allergies, lesions, events, meds, event_*, lesion_locations, exports). Settings page wires "Export my data (JSON)".
+* Onboarding gate: `frontend/app/onboarding/page.tsx` — disclaimer ack → profile/conditions/allergies → reminder prefs → review. Stamps `profile.consent_acknowledged_at`, `profile.consent_version`, `profile.symptom_scale_version`, `profile.onboarding_completed_at`, `app_preferences.completed_onboarding`.
+* Legal: `/legal/privacy`, `/legal/terms`, `/about`, `/support` static pages.
+* Home redirect: signed-in users with `app_preferences.completed_onboarding=false` are pushed to `/onboarding`.
+
+## UI surface (Sprint 2/3)
+
+* `/onboarding` — 5-step setup, persists conditions to `user_conditions`, allergies to `user_allergies`.
+* `/settings` — profile name + clinic notes, allergies CRUD, reminder time/toggle, export/delete account.
+* `/medications` — `med_catalog` CRUD with `med_category_enum` + dose/frequency/morning/afternoon/evening + Rx flag.
+* `/checkin?event=<id>` — pulls `trigger_taxonomy` from `/api/triggers`, lets user toggle med adherence, triggers, and log products (`med_category_enum`).
+* `/body-map?lesion=<id>` — front/back silhouette, click to pin to `lesion_locations` with region + side (`left|right|midline|unknown`).
+* `/export` + `/export/summary` — CSV / JSON download + printable clinician summary (uses `/api/user-conditions`, `/api/user-allergies`, `/api/profile.clinic_notes`).
 
 ## Auth UI
 
@@ -161,11 +201,14 @@ Unless noted otherwise, file paths in this document are relative to the reposito
 
 ## Risks (remaining)
 
-* Legacy `syncLocalBundleToSupabase` still present in `frontend/lib/data/sync.ts` (no longer called from UI, but not deleted)
-* Rate limiter is in-memory (resets on serverless cold start)
-* No persistent API key storage table (keys stored in `profiles.skintrack_profile` JSONB)
-* No pull/restore from Supabase back to local (sync is push-only)
-* No automated tests
+* Legacy `syncLocalBundleToSupabase` still present in `frontend/lib/data/sync.ts` (no longer called from UI, but not deleted).
+* Rate limiter is in-memory (resets on serverless cold start).
+* No persistent API key storage table (keys stored in `profiles.skintrack_profile` JSONB).
+* No pull/restore from Supabase back to local (sync is push-only).
+* No automated tests.
+* Capacitor native wrap (iOS/Android) not yet scaffolded.
+* Turbopack build is broken in this monorepo on Windows; production build must use `next build --webpack`.
+* `/api/exports` requires `storage_path NOT NULL` but the export UI currently downloads client-side only (no row written). Server-side export generation is not yet implemented.
 
 ---
 
@@ -554,6 +597,27 @@ frontend/middleware.ts
 * Input sanitization: `frontend/lib/api/sanitize.ts` (angle bracket stripping)
 * Webhook: `POST /api/webhook` (forwards events to user-configured URL)
 * API Keys: `POST /api/keys`, `DELETE /api/keys/[id]`
+
+## Phase 8 (Sprint 2 — iOS schema) — DONE (2026-04-22)
+
+* Pulled real `ios_schema_*` migrations into `claude-supabase/supabase/migrations/`.
+* Backend types rewritten in `frontend/lib/types/backend.ts` to match live DB.
+* Validators added: `medications`, `event-context`, `event-assets`, `lesion-locations`, `app-preferences`, `user-conditions`, `user-allergies`, plus `profile` extended.
+* API routes added (15 new): `app-preferences`, `conditions`, `user-conditions`, `user-allergies`, `triggers`, `medications`, `lesion-locations`, `event-medications`, `event-triggers`, `event-products`, `event-images`, `event-metrics`, `exports`.
+* UI: `/onboarding` (5-step), `/settings` (rewritten), `/medications`, `/checkin`, `/body-map`, `/export`, `/export/summary`, `/about`, `/legal/privacy`, `/legal/terms`, `/support`.
+* Body map component (`frontend/components/body-map.tsx`) — front/back silhouette with region click-to-pin.
+
+## Phase 9 (Sprint 3 — App Store / Play Store readiness) — DONE (2026-04-22)
+
+* Account API: `GET /api/account` (full export dump), `DELETE /api/account` (storage cleanup + RPC delete).
+* Migration `20260421120000_app_account_deletion_and_seed.sql`: extends `handle_new_user()` to seed `app_preferences` and stamp `profiles.email`; adds `delete_user_account()` SECURITY DEFINER RPC.
+* Onboarding gate stamps consent + symptom-scale versions on `profiles`.
+* Legal pages, support page, About page in place.
+* `next build --webpack` succeeds; `tsc --noEmit` clean.
+
+## Phase 10 (Sprint 4 — Capacitor wrap) — TODO
+
+* `capacitor.config.ts`, iOS/Android project init, splash + icon assets, native runtime testing on a device.
 
 ---
 

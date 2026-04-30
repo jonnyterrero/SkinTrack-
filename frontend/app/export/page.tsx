@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { toast } from "sonner"
 import { useAuth } from "@/context/AuthContext"
-import { apiGet, apiSend } from "@/lib/api/client"
+import { apiGet } from "@/lib/api/client"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -108,12 +108,6 @@ export default function ExportPage() {
         csv,
         "text/csv;charset=utf-8",
       )
-      await apiSend("/api/exports", "POST", {
-        lesion_id: lesionId === "all" ? null : lesionId,
-        export_type: lesionId === "all" ? "csv_full" : "csv_lesion",
-        date_from: dateFrom || null,
-        date_to: dateTo || null,
-      })
       toast.success(`Exported ${events.length} rows.`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Export failed")
@@ -131,7 +125,6 @@ export default function ExportPage() {
         JSON.stringify(full, null, 2),
         "application/json",
       )
-      await apiSend("/api/exports", "POST", { export_type: "json_full" })
       toast.success("Full export downloaded.")
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Export failed")
@@ -140,17 +133,11 @@ export default function ExportPage() {
     }
   }
 
-  async function openSummary() {
+  function openSummary() {
     const q = new URLSearchParams()
     if (lesionId !== "all") q.set("lesion", lesionId)
     if (dateFrom) q.set("from", dateFrom)
     if (dateTo) q.set("to", dateTo)
-    await apiSend("/api/exports", "POST", {
-      lesion_id: lesionId === "all" ? null : lesionId,
-      export_type: lesionId === "all" ? "pdf_summary" : "pdf_lesion",
-      date_from: dateFrom || null,
-      date_to: dateTo || null,
-    })
     window.open(`/export/summary?${q.toString()}`, "_blank")
   }
 

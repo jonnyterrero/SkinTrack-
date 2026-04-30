@@ -28,9 +28,7 @@ export function useReminders() {
       try {
         const prefs = await apiGet<AppPreferences>("/api/app-preferences")
         if (cancelled) return
-        if (!prefs.reminders_enabled && !prefs.reminder_med_enabled && !prefs.reminder_photo_enabled) {
-          return
-        }
+        if (!prefs.reminders_enabled) return
         if (typeof window === "undefined") return
         if (!("Notification" in window)) return
         if (Notification.permission === "default") {
@@ -46,20 +44,11 @@ export function useReminders() {
 
         const delay = Math.max(5_000, next.getTime() - now.getTime())
         const id = window.setTimeout(() => {
-          if (prefs.reminders_enabled) {
-            new Notification("SkinTrack+ daily log", {
-              body: "Quick check-in: how is your skin today?",
-              icon: "/icon-192x192.png",
-              tag: "skintrack-daily-log",
-            })
-          }
-          if (prefs.reminder_med_enabled) {
-            new Notification("SkinTrack+ medications", {
-              body: "Don't forget to log today's medications and remedies.",
-              icon: "/icon-192x192.png",
-              tag: "skintrack-meds",
-            })
-          }
+          new Notification("SkinTrack+ daily log", {
+            body: "Quick check-in: how is your skin today?",
+            icon: "/icon-192x192.png",
+            tag: "skintrack-daily-log",
+          })
         }, delay)
         timers.current.push(id)
       } catch {

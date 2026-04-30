@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -11,8 +11,8 @@ import type {
   EventProduct,
   EventTrigger,
   MedCatalogItem,
-  ProductType,
-  TriggerKey,
+  MedCategory,
+  TriggerTaxonomyRow,
 } from "@/lib/types/backend"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -28,59 +28,52 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-const TRIGGERS: { key: TriggerKey; label: string; group: string }[] = [
-  { key: "food", label: "Food (general)", group: "Diet" },
-  { key: "dairy", label: "Dairy", group: "Diet" },
-  { key: "gluten", label: "Gluten", group: "Diet" },
-  { key: "sugar", label: "Sugar", group: "Diet" },
-  { key: "alcohol", label: "Alcohol", group: "Diet" },
-  { key: "caffeine", label: "Caffeine", group: "Diet" },
-  { key: "spicy", label: "Spicy food", group: "Diet" },
-
-  { key: "stress", label: "Stress", group: "Lifestyle" },
-  { key: "poor_sleep", label: "Poor sleep", group: "Lifestyle" },
-  { key: "menstrual_cycle", label: "Menstrual cycle", group: "Lifestyle" },
-  { key: "illness", label: "Illness", group: "Lifestyle" },
-
-  { key: "heat", label: "Heat", group: "Environment" },
-  { key: "cold", label: "Cold", group: "Environment" },
-  { key: "humidity", label: "Humidity", group: "Environment" },
-  { key: "dry_air", label: "Dry air", group: "Environment" },
-  { key: "sun", label: "Sun exposure", group: "Environment" },
-  { key: "sweat", label: "Sweat", group: "Environment" },
-
-  { key: "detergent", label: "Detergent", group: "Contact" },
-  { key: "fragrance", label: "Fragrance", group: "Contact" },
-  { key: "new_skincare", label: "New skincare product", group: "Contact" },
-  { key: "pet_dander", label: "Pet dander", group: "Contact" },
-  { key: "dust", label: "Dust", group: "Contact" },
-  { key: "pollen", label: "Pollen", group: "Contact" },
-  { key: "new_clothing", label: "New clothing", group: "Contact" },
-  { key: "friction", label: "Friction / rubbing", group: "Contact" },
-  { key: "other", label: "Other", group: "Contact" },
-]
-
-const PRODUCT_TYPES: { value: ProductType; label: string }[] = [
+const PRODUCT_TYPE_OPTIONS: { value: MedCategory; label: string }[] = [
   { value: "moisturizer", label: "Moisturizer" },
   { value: "cleanser", label: "Cleanser" },
-  { value: "sunscreen", label: "Sunscreen" },
-  { value: "prescription_topical", label: "Prescription topical" },
-  { value: "otc_topical", label: "OTC topical" },
-  { value: "serum", label: "Serum" },
-  { value: "makeup", label: "Makeup" },
-  { value: "diet_change", label: "Diet change" },
+  { value: "topical", label: "Topical (Rx/OTC)" },
+  { value: "oral", label: "Oral" },
+  { value: "injection", label: "Injection" },
+  { value: "otc", label: "OTC" },
+  { value: "diet", label: "Diet change" },
   { value: "home_remedy", label: "Home remedy" },
-  { value: "environmental_change", label: "Environmental change" },
+  { value: "environmental", label: "Environmental change" },
   { value: "avoidance", label: "Avoidance / elimination" },
   { value: "other", label: "Other" },
 ]
 
+function groupForKey(key: string): string {
+  if (
+    ["food", "dairy", "gluten", "sugar", "alcohol", "caffeine", "spicy"].includes(
+      key,
+    )
+  ) {
+    return "Diet"
+  }
+  if (["stress", "poor_sleep", "menstrual_cycle", "illness"].includes(key)) {
+    return "Lifestyle"
+  }
+  if (["heat", "cold", "humidity", "dry_air", "sun", "sweat"].includes(key)) {
+    return "Environment"
+  }
+  return "Contact / other"
+}
+
 export default function CheckInPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading…</div>}>
+      <CheckInInner />
+    </Suspense>
+  )
+}
+
+function CheckInInner() {
   const router = useRouter()
   const params = useSearchParams()
   const eventId = params.get("event")
   const { user, loading } = useAuth()
 
+  const [taxonomy, setTaxonomy] = useState<TriggerTaxonomyRow[]>([])
   const [meds, setMeds] = useState<MedCatalogItem[]>([])
   const [eventMeds, setEventMeds] = useState<EventMedication[]>([])
   const [triggers, setTriggers] = useState<EventTrigger[]>([])
@@ -88,7 +81,7 @@ export default function CheckInPage() {
 
   const [newProduct, setNewProduct] = useState({
     product_name: "",
-    product_type: "moisturizer" as ProductType,
+    product_type: "moisturizer" as MedCategory,
     first_use: false,
     notes: "",
   })
@@ -100,12 +93,14 @@ export default function CheckInPage() {
   const loadAll = useCallback(async () => {
     if (!eventId) return
     try {
-      const [medsList, emList, trigList, prodList] = await Promise.all([
+      const [tax, medsList, emList, trigList, prodList] = await Promise.all([
+        apiGet<TriggerTaxonomyRow[]>("/api/triggers"),
         apiGet<MedCatalogItem[]>("/api/medications?active=true"),
         apiGet<EventMedication[]>(`/api/event-medications?skin_event_id=${eventId}`),
         apiGet<EventTrigger[]>(`/api/event-triggers?skin_event_id=${eventId}`),
         apiGet<EventProduct[]>(`/api/event-products?skin_event_id=${eventId}`),
       ])
+      setTaxonomy(tax)
       setMeds(medsList)
       setEventMeds(emList)
       setTriggers(trigList)
@@ -128,6 +123,16 @@ export default function CheckInPage() {
     [triggers],
   )
 
+  const triggerGroups = useMemo(() => {
+    const map = new Map<string, TriggerTaxonomyRow[]>()
+    for (const row of taxonomy) {
+      const g = groupForKey(row.key)
+      if (!map.has(g)) map.set(g, [])
+      map.get(g)!.push(row)
+    }
+    return Array.from(map.entries())
+  }, [taxonomy])
+
   async function toggleMed(m: MedCatalogItem, taken: boolean) {
     if (!eventId) return
     try {
@@ -142,7 +147,7 @@ export default function CheckInPage() {
     }
   }
 
-  async function toggleTrigger(key: TriggerKey, active: boolean) {
+  async function toggleTrigger(key: string, active: boolean) {
     if (!eventId) return
     try {
       if (active) {
@@ -171,6 +176,7 @@ export default function CheckInPage() {
         product_name: newProduct.product_name.trim(),
         product_type: newProduct.product_type,
         first_use: newProduct.first_use,
+        used: true,
         notes: newProduct.notes.trim() || null,
       })
       setNewProduct({
@@ -208,8 +214,6 @@ export default function CheckInPage() {
       </div>
     )
   }
-
-  const triggerGroups = Array.from(new Set(TRIGGERS.map((t) => t.group)))
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
@@ -258,13 +262,16 @@ export default function CheckInPage() {
 
         <Card className="p-5 space-y-3">
           <h2 className="text-lg font-medium">Suspected triggers</h2>
-          {triggerGroups.map((group) => (
+          {triggerGroups.length === 0 && (
+            <p className="text-sm text-slate-500">Loading triggers…</p>
+          )}
+          {triggerGroups.map(([group, rows]) => (
             <div key={group}>
               <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
                 {group}
               </div>
               <div className="flex flex-wrap gap-2">
-                {TRIGGERS.filter((t) => t.group === group).map((t) => {
+                {rows.map((t) => {
                   const active = activeTriggers.has(t.key)
                   return (
                     <Button
@@ -336,14 +343,14 @@ export default function CheckInPage() {
               <Select
                 value={newProduct.product_type}
                 onValueChange={(v) =>
-                  setNewProduct({ ...newProduct, product_type: v as ProductType })
+                  setNewProduct({ ...newProduct, product_type: v as MedCategory })
                 }
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {PRODUCT_TYPES.map((p) => (
+                  {PRODUCT_TYPE_OPTIONS.map((p) => (
                     <SelectItem key={p.value} value={p.value}>
                       {p.label}
                     </SelectItem>

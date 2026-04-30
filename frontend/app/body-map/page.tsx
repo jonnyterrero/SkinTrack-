@@ -1,13 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { Suspense, useCallback, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { toast } from "sonner"
 import { useAuth } from "@/context/AuthContext"
 import { apiGet, apiSend } from "@/lib/api/client"
 import { BodyMap, type BodyPin } from "@/components/body-map"
-import type { LesionLocation } from "@/lib/types/backend"
+import type { BodyRegion, LesionLocation } from "@/lib/types/backend"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -22,6 +22,14 @@ import {
 type LesionRow = { id: string; label: string }
 
 export default function BodyMapPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading…</div>}>
+      <BodyMapInner />
+    </Suspense>
+  )
+}
+
+function BodyMapInner() {
   const router = useRouter()
   const params = useSearchParams()
   const { user, loading } = useAuth()
@@ -53,7 +61,7 @@ export default function BodyMapPage() {
       rows.map((r) => ({
         id: r.id,
         body_view: r.body_view,
-        body_region: r.body_region,
+        body_region: r.body_region as BodyRegion,
         side: r.side,
         loc_x: Number(r.loc_x),
         loc_y: Number(r.loc_y),

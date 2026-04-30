@@ -1,18 +1,17 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { apiGet } from "@/lib/api/client"
+import type {
+  Condition,
+  Profile,
+  UserAllergy,
+  UserCondition,
+} from "@/lib/types/backend"
 
 type Lesion = { id: string; label: string; created_at: string }
-type AppPreferences = {
-  allergies: string | null
-  dermatologist_notes: string | null
-  primary_condition_id: string | null
-  conditions: string[]
-}
-type Condition = { id: string; display_name: string }
 type SkinEvent = {
   id: string
   lesion_id: string
@@ -36,7 +35,6 @@ type Medication = {
   is_prescription: boolean
   active: boolean
 }
-type Profile = { display_name: string | null }
 
 function avg(xs: number[]) {
   if (xs.length === 0) return null
@@ -44,6 +42,14 @@ function avg(xs: number[]) {
 }
 
 export default function SummaryPage() {
+  return (
+    <Suspense fallback={<div className="p-8">Loading…</div>}>
+      <SummaryInner />
+    </Suspense>
+  )
+}
+
+function SummaryInner() {
   const router = useRouter()
   const params = useSearchParams()
   const { user, loading } = useAuth()
@@ -53,8 +59,9 @@ export default function SummaryPage() {
 
   const [data, setData] = useState<{
     profile: Profile | null
-    prefs: AppPreferences | null
     conditions: Condition[]
+    userConditions: UserCondition[]
+    allergies: UserAllergy[]
     lesions: Lesion[]
     events: SkinEvent[]
     meds: Medication[]
@@ -67,14 +74,15 @@ export default function SummaryPage() {
   useEffect(() => {
     if (!user) return
     Promise.all([
-      apiGet<Profile>("/api/profile").catch(() => ({ display_name: null })),
-      apiGet<AppPreferences>("/api/app-preferences").catch(() => null),
+      apiGet<Profile>("/api/profile").catch(() => null),
       apiGet<Condition[]>("/api/conditions").catch(() => []),
+      apiGet<UserCondition[]>("/api/user-conditions").catch(() => []),
+      apiGet<UserAllergy[]>("/api/user-allergies").catch(() => []),
       apiGet<Lesion[]>("/api/lesions"),
       apiGet<SkinEvent[]>("/api/skin-events?limit=1000"),
       apiGet<Medication[]>("/api/medications?active=true"),
-    ]).then(([profile, prefs, conditions, lesions, events, meds]) => {
-      setData({ profile, prefs, conditions, lesions, events, meds })
+    ]).then(([profile, conditions, userConditions, allergies, lesions, events, meds]) => {
+      setData({ profile, conditions, userConditions, allergies, lesions, events, meds })
     })
   }, [user])
 
@@ -92,12 +100,13 @@ export default function SummaryPage() {
     return true
   })
 
-  const primary = data.conditions.find(
-    (c) => c.id === data.prefs?.primary_condition_id,
-  )
-  const otherConds = (data.prefs?.conditions ?? []).filter(
-    (id) => id !== data.prefs?.primary_condition_id,
-  )
+  const conditionNames = data.userConditions
+    .map(
+      (uc) =>
+        data.conditions.find((c) => c.id === uc.condition_id)?.display_name ??
+        uc.condition_id,
+    )
+    .filter(Boolean)
 
   return (
     <div className="mx-auto max-w-3xl p-6 print:p-0 bg-white">
@@ -127,29 +136,21 @@ export default function SummaryPage() {
       </div>
 
       <section className="mb-4">
-        <h2 className="font-semibold mb-1">Conditions</h2>
-        <div className="text-sm">
-          Primary: {primary?.display_name ?? "—"}
-        </div>
-        {otherConds.length > 0 && (
-          <div className="text-sm text-slate-600">
-            Other:{" "}
-            {otherConds
-              .map(
-                (id) =>
-                  data.conditions.find((c) => c.id === id)?.display_name ?? id,
-              )
-              .join(", ")}
+        <h2 className="font-semibold mb-1">Conditions tracked</h2>
+        {conditionNames.length === 0 ? (
+          <div className="text-sm text-slate-500">None recorded.</div>
+        ) : (
+          <div className="text-sm">{conditionNames.join(", ")}</div>
+        )}
+        {data.allergies.length > 0 && (
+          <div className="text-sm mt-1">
+            <strong>Allergies:</strong>{" "}
+            {data.allergies.map((a) => a.allergen).join(", ")}
           </div>
         )}
-        {data.prefs?.allergies && (
+        {data.profile?.clinic_notes && (
           <div className="text-sm mt-1">
-            <strong>Allergies:</strong> {data.prefs.allergies}
-          </div>
-        )}
-        {data.prefs?.dermatologist_notes && (
-          <div className="text-sm mt-1">
-            <strong>Clinic notes:</strong> {data.prefs.dermatologist_notes}
+            <strong>Clinic notes:</strong> {data.profile.clinic_notes}
           </div>
         )}
       </section>

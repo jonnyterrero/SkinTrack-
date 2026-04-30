@@ -80,7 +80,7 @@ export default function SettingsPage() {
       const created = await apiSend<UserAllergy>("/api/user-allergies", "POST", {
         allergen: value,
       })
-      setAllergies((prev) => [...prev, created])
+      if (created) setAllergies((prev) => [...prev, created])
       setNewAllergen("")
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not add allergy")

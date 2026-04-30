@@ -25,11 +25,13 @@ const CATEGORY_OPTIONS: { value: MedCategory; label: string }[] = [
   { value: "topical", label: "Topical prescription" },
   { value: "oral", label: "Oral medication" },
   { value: "injection", label: "Injection" },
+  { value: "otc", label: "OTC medication" },
   { value: "moisturizer", label: "Moisturizer / emollient" },
   { value: "cleanser", label: "Cleanser / soap" },
   { value: "diet", label: "Diet change" },
   { value: "home_remedy", label: "Home remedy" },
   { value: "environmental", label: "Environmental change" },
+  { value: "avoidance", label: "Avoidance / elimination" },
   { value: "other", label: "Other" },
 ]
 

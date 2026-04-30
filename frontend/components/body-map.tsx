@@ -8,7 +8,7 @@ export type BodyPin = {
   id?: string
   body_view: BodyView
   body_region: BodyRegion
-  side: BodySide | null
+  side: BodySide
   loc_x: number
   loc_y: number
 }
