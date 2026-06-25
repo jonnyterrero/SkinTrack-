@@ -89,7 +89,7 @@ Unless noted otherwise, file paths in this document are relative to the reposito
 
 # 2. CURRENT STATE AUDIT
 
-> Last updated: 2026-04-13 — All phases (1–7) complete.
+> Last updated: 2026-04-16 — All phases (1–7) complete + end-to-end integration wired.
 
 ## Persistence
 
@@ -104,9 +104,11 @@ Unless noted otherwise, file paths in this document are relative to the reposito
 
 ## Sync
 
-* Legacy push-only: `syncLocalBundleToSupabase()` in `frontend/lib/data/sync.ts` (full replace, still present)
+* Legacy push-only: `syncLocalBundleToSupabase()` in `frontend/lib/data/sync.ts` (full replace, still present but no longer called from UI)
 * New sync engine: `frontend/lib/sync/engine.ts` + `frontend/lib/sync/queue.ts` — idempotent upserts via IndexedDB queue
 * Hook: `frontend/hooks/useSyncEngine.ts` — auto-syncs on 30 s interval when authenticated
+* **Integrated**: `SkinTrackProvider` calls `enqueue()` on every write + runs `useSyncEngine()` for auto-sync
+* **Integrations tab**: replaced legacy `syncLocalBundleToSupabase` with "Sync now" button using new engine
 * API: `POST /api/sync` — accepts batch operations from the client queue
 
 ## API
@@ -145,18 +147,25 @@ Unless noted otherwise, file paths in this document are relative to the reposito
 
 ## Security
 
-* Rate limiting: `frontend/lib/api/rate-limit.ts` (100 req/min per user, in-memory token bucket)
+* Rate limiting: `frontend/lib/api/rate-limit.ts` (100 req/min per user, in-memory token bucket) — **active on all API routes** via `requireAuthAndRateLimit()`
 * API key hashing: `frontend/lib/api/api-keys.ts` (SHA-256, `sk_` prefixed keys)
-* Input sanitization: `frontend/lib/api/sanitize.ts` (strips angle brackets from text fields)
+* Input sanitization: `frontend/lib/api/sanitize.ts` (strips angle brackets from text fields) — **active on all mutating API routes** via `sanitizedBody()` helper in `frontend/lib/api/helpers.ts`
 * Zod validation: `frontend/lib/validators/` — schemas for profile, records, lesions, skin-events, uploads
 * Upload validation: MIME type allowlist + magic byte verification + 10 MB limit
 
+## Auth UI
+
+* Sign-in/sign-out button in `frontend/app/page.tsx` header — uses `useAuth()` from AuthContext
+* Sync status cloud icon (with pending count badge) visible when signed in
+* Auth is opt-in — app works fully offline without signing in (local-first preserved)
+
 ## Risks (remaining)
 
-* Legacy `syncLocalBundleToSupabase` still present (destructive full replace)
-* New sync engine not yet wired into UI components
+* Legacy `syncLocalBundleToSupabase` still present in `frontend/lib/data/sync.ts` (no longer called from UI, but not deleted)
 * Rate limiter is in-memory (resets on serverless cold start)
 * No persistent API key storage table (keys stored in `profiles.skintrack_profile` JSONB)
+* No pull/restore from Supabase back to local (sync is push-only)
+* No automated tests
 
 ---
 

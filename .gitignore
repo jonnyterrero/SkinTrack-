@@ -20,6 +20,35 @@ yarn-error.log*
 # env files
 .env*
 !.env.example
+!frontend/.env.example
+
+# secrets
+*.pem
+*.key
+secrets/
+config/secrets.*
+
+# Nested local clones / duplicates (nested .git repos — keep outside version control)
+SkinTrack--1/
+SkinTrack--2/
+SkinTrack-/
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Logs
+*.log
+logs/
 
 # vercel
 .vercel
