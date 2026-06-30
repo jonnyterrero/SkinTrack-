@@ -2,7 +2,7 @@
 
 **A comprehensive Progressive Web App (PWA) for tracking and analyzing chronic skin conditions.**
 
-## Repository layout
+## Repository Layout
 
 | Path | Contents |
 |------|----------|
@@ -12,8 +12,6 @@
 | `cursor/`, `legacy/` | Stubs for IDE notes and archived files |
 
 Code for a skintracker project. Aimed at helping people with chronic skin conditions and illnesses.
-
-*Automatically synced with your [v0.app](https://v0.app) deployments*
 
 [![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/jonnyterreros-projects/v0-web-app-to-mobile)
 [![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/projects/9biUawphA3D)
@@ -53,13 +51,13 @@ Comprehensive symptom logging system that allows you to track:
   - Vitiligo
   - Contact Dermatitis
   - Cold Sores
-- **Symptom Severity Scales**: 
+- **Symptom Severity Scales**:
   - **Itch Level**: 0-10 scale to track itching intensity
   - **Pain Level**: 0-10 scale to monitor pain/discomfort
   - **Stress Level**: Track stress correlation with flare-ups
 - **Sleep Tracking**: Monitor sleep quality and its impact on skin health
 - **Trigger Documentation**: Log potential triggers (foods, products, environmental factors)
-- **Medication Tracking**: 
+- **Medication Tracking**:
   - Record medications and treatments
   - Track medication adherence
   - Note new products or treatments
@@ -75,7 +73,7 @@ Comprehensive symptom logging system that allows you to track:
   - Left/Right Arms and Hands
   - Left/Right Thighs and Knees
   - Left/Right Feet
-- **Color-Coded Severity**: 
+- **Color-Coded Severity**:
   - Red indicators for high severity
   - Yellow for medium severity
   - Green for low severity
@@ -84,45 +82,23 @@ Comprehensive symptom logging system that allows you to track:
 
 ### 📊 Data Analysis & Visualization
 
-- **Trend Analysis**: Track changes over time with visual trend indicators
-  - Increasing trends (⬆️ red)
-  - Decreasing trends (⬇️ green)
-  - Stable trends (➡️ gray)
-- **Statistical Summary**: 
-  - Average symptom scores across all metrics
-  - Comparison of recent vs. historical data
-  - Progress visualization
-- **Interactive Charts**: Beautiful, responsive charts powered by Recharts
-- **Data Export**: 
-  - Export all data as JSON files
-  - Prepare reports for healthcare providers
-  - Maintain offline backups
-- **Quick Stats Dashboard**: 
-  - Total records count
-  - Image count
-  - Recent activity overview
+- **Trend Analysis**: Track changes over time with visual trend indicators (increasing, decreasing, stable)
+- **Statistical Summary**: Average symptom scores, recent vs. historical comparisons, and progress visualization
+- **Interactive Charts**: Responsive charts powered by Recharts
+- **Data Export**: Export all data as JSON for clinical provider reporting
+- **Quick Stats Dashboard**: Total records count, image count, and recent activity overview
 
 ### 👤 Profile Management
 
 - **Personal Information**: Store and manage your profile details
 - **Demographics**: Age, gender, skin type
-- **Medical Information**: 
-  - Current conditions
-  - Active medications
-  - Known allergies
+- **Medical Information**: Current conditions, active medications, known allergies
 - **Custom Notes**: Personal health notes and observations
-- **Local Storage**: All profile data stored securely on your device
 
 ### 🔗 Integrations & Export
 
-- **API Integration**: 
-  - Generate API keys for programmatic access
-  - Webhook support for external integrations
-  - RESTful API endpoints
-- **Data Export**: 
-  - JSON export for complete data portability
-  - Structured format for easy import into other systems
-  - Include profile and all records
+- **API Integration**: Generate API keys for programmatic access, webhook support, RESTful API endpoints
+- **Data Export**: JSON export for complete data portability, structured format for easy import into other systems
 - **Data Import**: Import data from external sources or backups
 - **Webhook Notifications**: Configure webhooks to send data to external services
 
@@ -142,7 +118,8 @@ Comprehensive symptom logging system that allows you to track:
 - **Styling**: Tailwind CSS with custom animations
 - **UI Components**: Radix UI primitives with custom styling
 - **Charts**: Recharts for data visualization
-- **State Management**: React hooks with localStorage
+- **State Management**: React hooks
+- **Database**: Supabase (PostgreSQL) with tracked schema migrations
 - **PWA**: Service Workers for offline support
 - **Deployment**: Vercel
 
@@ -209,30 +186,27 @@ npm start
 
 ## 🔄 Deployment
 
-Your project is live at:
+The project is live at:
 
 **[https://vercel.com/jonnyterreros-projects/v0-web-app-to-mobile](https://vercel.com/jonnyterreros-projects/v0-web-app-to-mobile)**
-
-## 🏗️ Build Your App
-
-Continue building your app on:
-
-**[https://v0.app/chat/projects/9biUawphA3D](https://v0.app/chat/projects/9biUawphA3D)**
-
-## 📝 How It Works
-
-1. **Create and modify** your project using [v0.app](https://v0.app)
-2. **Deploy your chats** from the v0 interface
-3. **Changes are automatically pushed** to this repository from [v0.app](https://v0.app)
-4. **Vercel deploys** the latest version from this repository
 
 ## ⚠️ Important Disclaimer
 
 **This application is NOT a diagnostic tool.** It is designed to help you track and monitor your skin conditions, but any concerning changes or new symptoms should be evaluated by a qualified healthcare professional. Always consult with a dermatologist or healthcare provider for proper diagnosis and treatment.
 
+## 🤝 Contributing
+
+Contributions, bug reports, and feature requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m 'Add your feature'`
+4. Push to the branch: `git push origin feature/your-feature`
+5. Open a Pull Request referencing any related issues
+
 ## 📄 License
 
-This project is private and proprietary.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ---
 
